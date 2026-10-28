@@ -157,7 +157,7 @@ function dates() {
 function settings() {
   return `<h2>Settings</h2>
   <form class="card" data-form="names"><h3>Names</h3><div class="row"><input type="text" name="a" value="${esc(S.names[0])}" aria-label="Your name"><input type="text" name="b" value="${esc(S.names[1])}" aria-label="Partner's name"><button class="primary">Save names</button></div></form>
-  ${sb ? '<div class="card"><h3>Account</h3><p class="muted">You are logged in. Changes reach your partner within about 15 seconds.</p><button data-act="logout">Log out</button></div>' : ''}
+  ${sb ? `<div class="card"><h3>Account</h3><p class="muted">You are logged in. Changes reach your partner within about 15 seconds.</p><p class="muted" role="status">${esc(syncInfo)}</p><button onclick="pull(true).then(render)">Sync now</button> <button data-act="logout">Log out</button></div>` : ''}
   <div class="card"><h3>Backup</h3><p class="muted">${sb ? 'Your data is saved online. A backup file is still a good safety net.' : 'Data is stored in this browser only. Export a copy now and then.'}</p>
     <button data-act="export">Export backup</button> <label><button type="button" onclick="this.nextElementSibling.click()">Import backup</button><input type="file" id="imp" accept=".json" hidden></label></div>`;
 }
@@ -226,16 +226,19 @@ const ICONS = {
 /* ---------- cloud sync (Supabase) ---------- */
 const CFG = window.CONFIG || {};
 const sb = (CFG.SUPABASE_URL && CFG.SUPABASE_KEY && window.supabase) ? window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY) : null;
-let authed = !sb, dirty = false, pushTimer = null;
+let authed = !sb, dirty = false, pushTimer = null, syncInfo = '';
 const canon = o => JSON.stringify(o, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : 1)) : v);
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.setAttribute('role', 'status'); d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 4000); }
 async function push() {
-  const { error } = await sb.from('shared_data').update({ data: S, updated_at: new Date().toISOString() }).eq('id', 1);
-  if (error) toast('Could not save online. Check your connection.'); else dirty = false;
+  const { data, error } = await sb.from('shared_data').update({ data: S, updated_at: new Date().toISOString() }).eq('id', 1).select('id');
+  if (error) toast('Could not save online: ' + error.message);
+  else if (!data.length) toast('Not saved online: the shared row is missing or blocked. Check the Supabase setup.');
+  else { dirty = false; syncInfo = 'Last saved online at ' + new Date().toLocaleTimeString(); }
 }
 async function pull(first) {
   const { data, error } = await sb.from('shared_data').select('data').eq('id', 1).single();
   if (error) { if (first) toast('Offline: showing the copy saved on this device.'); return; }
+  syncInfo = 'Last checked online at ' + new Date().toLocaleTimeString();
   const remote = data.data || {};
   if (!Object.keys(remote).length) { if (first) push(); return; } // online copy empty: upload what is on this device
   if (dirty || editing || document.activeElement?.matches('input,textarea,select')) return;
