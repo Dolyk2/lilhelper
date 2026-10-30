@@ -4,7 +4,7 @@
 
 const KEY = 'us-helper-v1';
 const DEFAULTS = {
-  names: ['Me', 'Her'], events: [], tasks: [], notes: [],
+  names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [],
   lists: [{ id: 'l1', name: 'Shopping', items: [] }], milestones: []
 };
 const store = {
@@ -83,13 +83,19 @@ function calendar() {
   for (let d = 1; d <= n; d++) {
     const k = `${cal.y}-${pad(cal.m + 1)}-${pad(d)}`;
     const cls = [k === t && 'today', k === cal.sel && 'sel', S.events.some(e => e.date === k) && 'has'].filter(Boolean).join(' ');
-    cells += `<button class="${cls}" data-act="pick" data-id="${k}" aria-label="${fmt(k)}">${d}</button>`;
+    const p1 = S.photos.find(p => p.date === k);
+    cells += `<button class="${cls}${p1 ? ' pic' : ''}" ${p1 ? `data-photo="${p1.thumb}"` : ''} data-act="pick" data-id="${k}" aria-label="${fmt(k)}${p1 ? ', has photos' : ''}"><span>${d}</span></button>`;
   }
   const evs = S.events.filter(e => e.date === cal.sel).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
   const title = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const evLi = e => editing === e.id
     ? `<li><form class="row editing" data-form="saveEvent">${hid(e.id)}<input type="text" name="title" value="${esc(e.title)}" required aria-label="Event title"><input type="date" name="date" value="${e.date}" required aria-label="Date"><input type="time" name="time" value="${esc(e.time || '')}" aria-label="Time"><select name="who" aria-label="Who">${ownerOpts(e.who)}</select>${formBtns}</form></li>`
     : `<li><span class="grow">${esc(e.title)}</span><span class="muted">${esc(e.time || 'all day')}</span><span class="tag teal">${esc(owner(e.who))}</span>${editBtn(e.id)}<button class="ghost" data-act="delEvent" data-id="${e.id}" aria-label="Delete event">✕</button></li>`;
+  const ph = S.photos.filter(p => p.date === cal.sel).sort((a, b) => a.at - b.at);
+  const memories = `<div class="card"><h3>Memories</h3>${sb
+    ? `<div class="thumbs">${ph.map(p => `<button class="thumb" onclick="openViewer('${p.id}')" aria-label="Open photo"><img data-photo="${p.thumb}" alt="Memory from ${fmt(cal.sel)}"></button>`).join('')}</div>
+      <button class="primary" onclick="this.nextElementSibling.click()">Add photos</button><input type="file" accept="image/*" multiple hidden onchange="addPhotos(this)">`
+    : '<p class="muted">Photos need the online mode (Supabase login).</p>'}</div>`;
   return `<h2>Calendar</h2>
   <form class="card row" data-form="addEvent"><h3 style="flex-basis:100%;margin:0">New event</h3>
     <input type="text" name="title" placeholder="What's happening?" required aria-label="Event title">
@@ -99,7 +105,7 @@ function calendar() {
     <button class="primary">Add event</button></form>
   <div class="card"><div class="calhead"><button data-act="prev" aria-label="Previous month">‹</button><h3>${title}</h3><button data-act="next" aria-label="Next month">›</button></div><div class="cal">${cells}</div></div>
   <div class="card"><h3>${fmt(cal.sel)}</h3>
-    <ul class="items">${evs.map(evLi).join('') || '<li class="muted">No events this day.</li>'}</ul></div>`;
+    <ul class="items">${evs.map(evLi).join('') || '<li class="muted">No events this day.</li>'}</ul></div>${memories}`;
 }
 
 function tasks() {
@@ -168,6 +174,7 @@ const MODS = [
   { id: 'tasks', title: 'To-do', render: tasks },
   { id: 'notes', title: 'Notes', render: notes },
   { id: 'lists', title: 'Lists', render: lists },
+  { id: 'sports', title: 'Sports', render: sports },
   { id: 'dates', title: 'Special dates', render: dates },
   { id: 'settings', title: 'Settings', render: settings }
 ];
@@ -190,6 +197,7 @@ const A = {
   delItem: id => { const l = S.lists.find(l => l.id === listTab); l.items = l.items.filter(x => x.id !== id); },
   delList: id => { S.lists = S.lists.filter(l => l.id !== id); },
   delMs: id => { S.milestones = S.milestones.filter(m => m.id !== id); },
+  delSport: id => { S.sports = S.sports.filter(s => s.id !== id); },
   logout: () => { sb.auth.signOut(); authed = false; },
   export: () => {
     const a = document.createElement('a');
@@ -210,10 +218,13 @@ const F = {
   saveItem: d => { S.lists.find(l => l.id === listTab).items.find(x => x.id === d.id).text = d.text.trim(); },
   saveList: d => { S.lists.find(l => l.id === d.id).name = d.name.trim(); },
   saveMs: d => Object.assign(S.milestones.find(x => x.id === d.id), { title: d.title.trim(), date: d.date, repeat: !!d.repeat }),
+  addSport: d => S.sports.push({ id: uid(), ...sportData(d) }),
+  saveSport: d => Object.assign(S.sports.find(x => x.id === d.id), sportData(d)),
   names: d => { S.names = [d.a.trim() || 'Me', d.b.trim() || 'Her']; }
 };
 
 const ICONS = {
+  sports: '<path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/>',
   home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>',
   tasks: '<path d="M4 12l5 5L20 6"/>',
@@ -237,7 +248,7 @@ async function push() {
 }
 async function pull(first) {
   const { data, error } = await sb.from('shared_data').select('data').eq('id', 1).single();
-  if (error) { if (first) toast('Offline: showing the copy saved on this device.'); return; }
+  if (error) { if (first) toast('Could not load online data: ' + error.message); return; }
   syncInfo = 'Last checked online at ' + new Date().toLocaleTimeString();
   const remote = data.data || {};
   if (!Object.keys(remote).length) { if (first) push(); return; } // online copy empty: upload what is on this device
@@ -267,6 +278,102 @@ async function boot() {
   render();
 }
 
+/* ---------- photos (Supabase Storage, private bucket "memories") ---------- */
+const urlCache = {};
+async function urls(paths) {
+  const need = [...new Set(paths)].filter(p => !urlCache[p] || urlCache[p].exp < Date.now());
+  if (need.length) {
+    const { data } = await sb.storage.from('memories').createSignedUrls(need, 3600);
+    (data || []).forEach(d => { if (d.signedUrl) urlCache[d.path] = { url: d.signedUrl, exp: Date.now() + 3300e3 }; });
+  }
+}
+async function hydrate() {
+  if (!sb || !authed) return;
+  const els = [...view.querySelectorAll('[data-photo]')]; if (!els.length) return;
+  await urls(els.map(e => e.dataset.photo));
+  els.forEach(e => { const u = urlCache[e.dataset.photo]?.url; if (!u) return; if (e.tagName === 'IMG') e.src = u; else e.style.backgroundImage = `url("${u}")`; });
+}
+async function shrink(file, max, q) {
+  const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', q));
+}
+async function addPhotos(input) {
+  const files = [...input.files]; if (!files.length) return;
+  const date = cal.sel; toast(`Uploading ${files.length} photo${files.length > 1 ? 's' : ''}…`);
+  for (const f of files) {
+    try {
+      const [full, thumb] = await Promise.all([shrink(f, 1600, .82), shrink(f, 360, .7)]);
+      const id = uid() + Date.now().toString(36), bucket = sb.storage.from('memories');
+      let r = await bucket.upload(`${id}.jpg`, full, { contentType: 'image/jpeg' }); if (r.error) throw r.error;
+      r = await bucket.upload(`${id}_t.jpg`, thumb, { contentType: 'image/jpeg' }); if (r.error) throw r.error;
+      S.photos.push({ id, date, path: `${id}.jpg`, thumb: `${id}_t.jpg`, at: Date.now() }); save();
+    } catch (e) { toast('Upload failed: ' + (e.message || e)); }
+  }
+  input.value = ''; render();
+}
+function openViewer(id) {
+  const date = S.photos.find(p => p.id === id).date;
+  const list = S.photos.filter(p => p.date === date).sort((a, b) => a.at - b.at);
+  let i = list.findIndex(p => p.id === id);
+  const box = document.createElement('div'); box.className = 'lightbox'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+  box.innerHTML = `<img alt="Memory"><div class="lbbar"><button data-x="prev" aria-label="Previous">‹</button><span></span><button data-x="next" aria-label="Next">›</button><button data-x="del">Delete</button><button data-x="close">Close</button></div>`;
+  document.body.append(box);
+  const img = box.querySelector('img'), cap = box.querySelector('span');
+  const show = async () => { const p = list[i]; cap.textContent = `${fmt(p.date)}, ${i + 1} of ${list.length}`; await urls([p.path]); img.src = urlCache[p.path]?.url || ''; };
+  const esc_ = e => { if (e.key === 'Escape') { box.remove(); document.removeEventListener('keydown', esc_); } };
+  document.addEventListener('keydown', esc_);
+  box.onclick = async e => {
+    const x = e.target.dataset.x;
+    if (e.target === box || x === 'close') return box.remove();
+    if (x === 'prev') { i = (i - 1 + list.length) % list.length; show(); }
+    if (x === 'next') { i = (i + 1) % list.length; show(); }
+    if (x === 'del' && confirm('Delete this photo for both of you?')) {
+      const p = list[i]; await sb.storage.from('memories').remove([p.path, p.thumb]);
+      S.photos = S.photos.filter(q => q.id !== p.id); save(); box.remove(); render();
+    }
+  };
+  show();
+}
+
+/* ---------- sports ---------- */
+const SPORT_TYPES = ['Gym', 'Running', 'Walking', 'Hiking', 'Cycling', 'Swimming', 'Yoga', 'Skating', 'Football', 'Stretching'];
+const sportData = d => ({ type: d.type.trim(), date: d.date, mins: +d.mins || 0, km: +d.km || 0, who: +d.who, exercises: d.exercises.trim(), note: d.note.trim() });
+function sports() {
+  const today = iso(new Date()), ym = today.slice(0, 7);
+  const all = [...S.sports].sort((a, b) => b.date.localeCompare(a.date));
+  const mon = all.filter(s => s.date.startsWith(ym));
+  const mins = mon.reduce((a, s) => a + s.mins, 0);
+  const cnt = {}; mon.forEach(s => cnt[s.type] = (cnt[s.type] || 0) + 1);
+  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+  const per = i => mon.filter(s => s.who == i || s.who == 2).length;
+  const types = [...new Set([...SPORT_TYPES, ...S.sports.map(s => s.type)])];
+  const fields = s => `<input type="text" name="type" list="sporttypes" placeholder="Activity (gym, running…)" value="${esc(s.type || '')}" required aria-label="Activity">
+    <input type="date" name="date" value="${s.date || today}" required aria-label="Date">
+    <input type="number" name="mins" min="1" placeholder="Minutes" value="${s.mins || ''}" aria-label="Minutes" style="width:6.5rem">
+    <input type="number" name="km" min="0" step="0.1" placeholder="km" value="${s.km || ''}" aria-label="Distance in km" style="width:5.5rem">
+    <select name="who" aria-label="Who">${ownerOpts(s.who ?? 2)}</select>
+    <input type="text" name="exercises" placeholder="Exercises (squats 3x10, bench 3x8…)" value="${esc(s.exercises || '')}" aria-label="Exercises" style="flex-basis:100%">
+    <input type="text" name="note" placeholder="Note (how it felt, where…)" value="${esc(s.note || '')}" aria-label="Note" style="flex-basis:100%">`;
+  const row = s => editing === s.id
+    ? `<li><form class="row editing" data-form="saveSport">${hid(s.id)}${fields(s)}${formBtns}</form></li>`
+    : `<li><span class="tag teal">${esc(s.type)}</span><div class="grow"><strong>${parse(s.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</strong>
+      <span class="muted">${[s.mins && s.mins + ' min', s.km && s.km + ' km'].filter(Boolean).join(', ')}</span>
+      ${s.exercises ? `<div>${esc(s.exercises)}</div>` : ''}${s.note ? `<div class="muted">${esc(s.note)}</div>` : ''}</div>
+      <span class="tag">${esc(owner(s.who))}</span>${editBtn(s.id)}<button class="ghost" data-act="delSport" data-id="${s.id}" aria-label="Delete activity">✕</button></li>`;
+  return `<h2>Sports</h2><p class="muted">This month so far.</p>
+  <div class="grid" style="margin-bottom:1rem">
+    <div class="card"><div class="big">${mon.length}</div><p>activities<br><span class="muted">${esc(S.names[0])} ${per(0)}, ${esc(S.names[1])} ${per(1)}</span></p></div>
+    <div class="card"><div class="big">${Math.floor(mins / 60)}h ${mins % 60}m</div><p>total time</p></div>
+    <div class="card"><div class="big" style="font-size:2rem">${top ? esc(top[0]) : '–'}</div><p>${top ? `most frequent (${top[1]}×)` : 'nothing logged yet'}</p></div>
+  </div>
+  <form class="card row" data-form="addSport"><h3 style="flex-basis:100%;margin:0">Log an activity</h3>${fields({})}<button class="primary">Add activity</button></form>
+  <datalist id="sporttypes">${types.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
+  <div class="card"><ul class="items">${all.map(row).join('') || '<li class="muted">Nothing logged yet.</li>'}</ul></div>`;
+}
+
 /* ---------- shell ---------- */
 const view = document.getElementById('view'), nav = document.getElementById('nav');
 function render() {
@@ -279,6 +386,7 @@ function render() {
   view.innerHTML = m.render();
   view.scrollTop = y;
   if (editing) view.querySelector('.editing input[type=text], .editing textarea')?.focus();
+  hydrate();
 }
 document.addEventListener('submit', e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
