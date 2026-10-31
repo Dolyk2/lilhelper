@@ -38,6 +38,9 @@ const daysTo = m => {
 /* ---------- modules ---------- */
 const cal = { y: new Date().getFullYear(), m: new Date().getMonth(), sel: iso(new Date()) };
 let listTab = null;
+let homePhotoId = null, sportRange = 'month', sportWho = 'all';
+const hm = m => `${Math.floor(m / 60)}h ${m % 60}m`;
+function shufflePhoto() { homePhotoId = null; render(); }
 let editing = null; // id of the item currently being edited
 const goTo = k => { const d = parse(k); cal.sel = k; cal.y = d.getFullYear(); cal.m = d.getMonth(); };
 const editBtn = id => `<button class="ghost" data-act="edit" data-id="${id}" aria-label="Edit">Edit</button>`;
@@ -52,26 +55,29 @@ function home() {
   const evs = S.events.filter(e => e.date === t).sort(byTime);
   const coming = S.events.filter(e => e.date > t).sort(byTime).slice(0, 8);
   const open = S.tasks.filter(x => !x.done).slice(0, 6);
-  const nts = [...S.notes].sort((a, b) => (b.pin - a.pin) || b.at - a.at).slice(0, 3);
   const ms = S.milestones.map(m => ({ ...m, n: daysTo(m) })).sort((a, b) => a.n - b.n).slice(0, 3);
+  const lst = S.lists.slice(0, 4).map(l => ({ name: l.name, open: l.items.filter(i => !i.done) }));
+  if (!S.photos.find(p => p.id === homePhotoId)) homePhotoId = S.photos.length ? S.photos[Math.floor(Math.random() * S.photos.length)].id : null;
+  const hp = S.photos.find(p => p.id === homePhotoId);
+  const mon = S.sports.filter(s => s.date.startsWith(t.slice(0, 7)));
+  const tm = i => mon.filter(s => s.who == i || s.who == 2).reduce((a, s) => a + s.mins, 0);
+  const last = [...S.sports].sort((a, b) => b.date.localeCompare(a.date))[0];
   const more = (id, txt) => `<p style="margin:.6rem 0 0"><a href="#${id}">${txt}</a></p>`;
   return `<h2>${(h => h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening')(new Date().getHours())}, ${esc(S.names[0])} & ${esc(S.names[1])}</h2><p class="muted">${fmt(t)}</p>
   <div class="home">
     <section class="card span hero"><h3>Special dates</h3>${ms.length
       ? `<div class="herorow">${ms.map((m, i) => `<div class="${i ? 'small' : ''}"><div class="big">${m.n === 0 ? 'Today' : m.n}</div><p>${m.n === 0 ? '' : 'days until '}${esc(m.title)}</p></div>`).join('')}</div>`
       : `<p class="muted">Add an anniversary or birthday under Special dates.</p>`}</section>
-    <section class="card"><h3>Today</h3>${evs.length
-      ? `<ul class="items">${evs.map(e => evRow(e)).join('')}</ul>`
-      : `<p class="muted">Nothing planned today.</p>`}${more('calendar', 'Open calendar')}</section>
-    <section class="card"><h3>Coming up</h3>${coming.length
-      ? `<ul class="items">${coming.map(e => evRow(e, label(e.date))).join('')}</ul>`
-      : `<p class="muted">No upcoming events. Add one in the Calendar.</p>`}${more('calendar', 'Open calendar')}</section>
-    <section class="card"><h3>Notes</h3>${nts.length
-      ? nts.map(n => `<div class="mini ${n.pin ? 'pin' : ''}"><strong>${esc(n.title || 'Untitled')}</strong>${n.pin ? ' <span class="tag">pinned</span>' : ''}<div class="muted note">${esc(n.body.length > 120 ? n.body.slice(0, 120) + '…' : n.body)}</div></div>`).join('')
-      : `<p class="muted">No notes yet. Save gift ideas or things to remember.</p>`}${more('notes', 'All notes')}</section>
-    <section class="card"><h3>Open to-dos</h3>${open.length
-      ? `<ul class="items">${open.map(x => `<li><span class="grow">${esc(x.text)}</span><span class="tag">${esc(owner(x.owner))}</span></li>`).join('')}</ul>`
-      : `<p class="muted">All done. Add a new to-do when something comes up.</p>`}${more('tasks', 'All to-dos')}</section>
+    <section class="card"><h3>Today</h3>${evs.length ? `<ul class="items">${evs.map(e => evRow(e)).join('')}</ul>` : `<p class="muted">Nothing planned today.</p>`}${more('calendar', 'Open calendar')}</section>
+    <section class="card"><h3>Coming up</h3>${coming.length ? `<ul class="items">${coming.map(e => evRow(e, label(e.date))).join('')}</ul>` : `<p class="muted">No upcoming events. Add one in the Calendar.</p>`}${more('calendar', 'Open calendar')}</section>
+    <section class="card"><h3>Memory</h3>${hp && sb
+      ? `<button class="homephoto" onclick="openViewer('${hp.id}')" aria-label="Open photo"><img data-photo="${hp.path}" alt="Memory from ${fmt(hp.date)}"></button><p class="muted">${fmt(hp.date)} <button class="ghost" onclick="shufflePhoto()">Show another</button></p>`
+      : `<p class="muted">Add photos to a day in the Calendar and a random one shows up here.</p>`}</section>
+    <section class="card"><h3>Sports this month</h3>${mon.length
+      ? `<div class="big">${hm(tm(0) + tm(1))}</div><p class="muted">both of you combined</p><p>${esc(S.names[0])} <strong>${hm(tm(0))}</strong>, ${esc(S.names[1])} <strong>${hm(tm(1))}</strong></p>${last ? `<p class="muted">Last: ${esc(last.type)} on ${fmt(last.date)}</p>` : ''}`
+      : `<p class="muted">Nothing logged this month.</p>`}${more('sports', 'Open sports')}</section>
+    <section class="card"><h3>Lists</h3>${lst.length ? lst.map(l => `<div class="mini"><strong>${esc(l.name)}</strong> <span class="tag">${l.open.length} open</span><div class="muted">${l.open.length ? esc(l.open.slice(0, 4).map(i => i.text).join(', ')) + (l.open.length > 4 ? '…' : '') : 'All done'}</div></div>`).join('') : `<p class="muted">No lists yet.</p>`}${more('lists', 'All lists')}</section>
+    <section class="card"><h3>Open to-dos</h3>${open.length ? `<ul class="items">${open.map(x => `<li><span class="grow">${esc(x.text)}</span><span class="tag">${esc(owner(x.owner))}</span></li>`).join('')}</ul>` : `<p class="muted">All done. Add a new to-do when something comes up.</p>`}${more('tasks', 'All to-dos')}</section>
   </div>`;
 }
 
@@ -103,22 +109,26 @@ function calendar() {
     <input type="time" name="time" aria-label="Time">
     <select name="who" aria-label="Who">${ownerOpts()}</select>
     <button class="primary">Add event</button></form>
-  <div class="card"><div class="calhead"><button data-act="prev" aria-label="Previous month">‹</button><h3>${title}</h3><button data-act="next" aria-label="Next month">›</button></div><div class="cal">${cells}</div></div>
-  <div class="card"><h3>${fmt(cal.sel)}</h3>
-    <ul class="items">${evs.map(evLi).join('') || '<li class="muted">No events this day.</li>'}</ul></div>${memories}`;
+  <div class="calwrap"><div class="card"><div class="calhead"><button data-act="prev" aria-label="Previous month">‹</button><h3>${title}</h3><button data-act="next" aria-label="Next month">›</button></div><div class="cal">${cells}</div></div>
+  <div class="daypanel"><div class="card"><h3>${fmt(cal.sel)}</h3>
+    <ul class="items">${evs.map(evLi).join('') || '<li class="muted">No events this day.</li>'}</ul></div>${memories}</div></div>`;
 }
 
 function tasks() {
   const li = x => editing === x.id
     ? `<li><form class="row editing" data-form="saveTask">${hid(x.id)}<input type="text" name="text" value="${esc(x.text)}" required aria-label="To-do"><select name="owner" aria-label="Who">${ownerOpts(x.owner)}</select><input type="date" name="due" value="${x.due || ''}" aria-label="Due date">${formBtns}</form></li>`
     : `<li class="${x.done ? 'done' : ''}"><input type="checkbox" ${x.done ? 'checked' : ''} data-act="toggleTask" data-id="${x.id}" aria-label="Done">
-    <span class="grow">${esc(x.text)} ${x.due ? `<span class="muted">· due ${fmt(x.due)}</span>` : ''}</span><span class="tag">${esc(owner(x.owner))}</span>${editBtn(x.id)}<button class="ghost" data-act="delTask" data-id="${x.id}" aria-label="Delete to-do">✕</button></li>`;
-  const open = S.tasks.filter(x => !x.done), done = S.tasks.filter(x => x.done);
-  return `<h2>To-do</h2>
-  <form class="row" data-form="addTask"><input type="text" name="text" placeholder="What needs doing?" required aria-label="To-do">
-    <select name="owner" aria-label="Who">${ownerOpts()}</select><input type="date" name="due" aria-label="Due date"><button class="primary">Add to-do</button></form>
-  <div class="card"><ul class="items">${open.map(li).join('') || '<li class="muted">Nothing open.</li>'}</ul></div>
-  ${done.length ? `<div class="card"><h3>Done</h3><ul class="items">${done.map(li).join('')}</ul><button data-act="clearDone">Clear done</button></div>` : ''}`;
+    <span class="grow">${esc(x.text)} ${x.due ? `<span class="muted">due ${fmt(x.due)}</span>` : ''}</span>${editBtn(x.id)}<button class="ghost" data-act="delTask" data-id="${x.id}" aria-label="Delete to-do">✕</button></li>`;
+  const secs = [[2, 'Both of us'], [1, S.names[1]], [0, S.names[0]]];
+  const sec = ([o, title]) => {
+    const mine = S.tasks.filter(x => x.owner == o), open = mine.filter(x => !x.done), done = mine.filter(x => x.done);
+    return `<section class="card"><h3>${esc(title)}</h3>
+      <form class="row" data-form="addTask"><input type="hidden" name="owner" value="${o}"><input type="text" name="text" placeholder="Add a to-do" required aria-label="To-do for ${esc(title)}"><input type="date" name="due" aria-label="Due date"><button class="primary">Add</button></form>
+      <ul class="items">${open.map(li).join('') || '<li class="muted">Nothing open.</li>'}</ul>
+      ${done.length ? `<p class="muted" style="margin:.9rem 0 0">Done</p><ul class="items">${done.map(li).join('')}</ul>` : ''}</section>`;
+  };
+  return `<h2>To-do</h2><div class="cols">${secs.map(sec).join('')}</div>
+  ${S.tasks.some(x => x.done) ? '<p><button data-act="clearDone">Clear all done</button></p>' : ''}`;
 }
 
 function notes() {
@@ -183,7 +193,7 @@ const MODS = [
 const A = {
   edit: id => { editing = id; },
   cancel: () => { editing = null; },
-  pick: id => { cal.sel = id; },
+  pick: id => { cal.sel = id; setTimeout(() => { if (innerWidth <= 1000) view.querySelector('.daypanel')?.scrollIntoView({ behavior: 'smooth' }); }, 60); },
   prev: () => { cal.m--; if (cal.m < 0) { cal.m = 11; cal.y--; } },
   next: () => { cal.m++; if (cal.m > 11) { cal.m = 0; cal.y++; } },
   delEvent: id => { S.events = S.events.filter(e => e.id !== id); },
@@ -197,6 +207,8 @@ const A = {
   delItem: id => { const l = S.lists.find(l => l.id === listTab); l.items = l.items.filter(x => x.id !== id); },
   delList: id => { S.lists = S.lists.filter(l => l.id !== id); },
   delMs: id => { S.milestones = S.milestones.filter(m => m.id !== id); },
+  srange: id => { sportRange = id; },
+  swho: id => { sportWho = id; },
   delSport: id => { S.sports = S.sports.filter(s => s.id !== id); },
   logout: () => { sb.auth.signOut(); authed = false; },
   export: () => {
@@ -342,13 +354,20 @@ function openViewer(id) {
 const SPORT_TYPES = ['Gym', 'Running', 'Walking', 'Hiking', 'Cycling', 'Swimming', 'Yoga', 'Skating', 'Football', 'Stretching'];
 const sportData = d => ({ type: d.type.trim(), date: d.date, mins: +d.mins || 0, km: +d.km || 0, who: +d.who, exercises: d.exercises.trim(), note: d.note.trim() });
 function sports() {
-  const today = iso(new Date()), ym = today.slice(0, 7);
+  const today = iso(new Date()), t0 = today0();
+  const wk = new Date(t0); wk.setDate(t0.getDate() - ((t0.getDay() + 6) % 7));
+  const start = sportRange === 'week' ? iso(wk) : sportRange === 'month' ? today.slice(0, 8) + '01' : '0000-00-00';
   const all = [...S.sports].sort((a, b) => b.date.localeCompare(a.date));
-  const mon = all.filter(s => s.date.startsWith(ym));
-  const mins = mon.reduce((a, s) => a + s.mins, 0);
-  const cnt = {}; mon.forEach(s => cnt[s.type] = (cnt[s.type] || 0) + 1);
-  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
-  const per = i => mon.filter(s => s.who == i || s.who == 2).length;
+  const inR = all.filter(s => s.date >= start);
+  const has = (s, i) => s.who == i || s.who == 2;
+  const mine = i => inR.filter(s => has(s, i));
+  const tm = i => mine(i).reduce((a, s) => a + s.mins, 0);
+  const km = i => mine(i).reduce((a, s) => a + s.km, 0);
+  const together = inR.filter(s => s.who == 2).reduce((a, s) => a + s.mins, 0);
+  const byType = {}; inR.forEach(s => byType[s.type] = (byType[s.type] || 0) + s.mins);
+  const bars = Object.entries(byType).sort((a, b) => b[1] - a[1]).slice(0, 6), maxB = bars[0]?.[1] || 1;
+  const list = inR.filter(s => sportWho === 'all' || has(s, +sportWho));
+  const tab = (act, id, on, txt) => `<button class="${on ? 'on' : ''}" data-act="${act}" data-id="${id}">${txt}</button>`;
   const types = [...new Set([...SPORT_TYPES, ...S.sports.map(s => s.type)])];
   const fields = s => `<input type="text" name="type" list="sporttypes" placeholder="Activity (gym, running…)" value="${esc(s.type || '')}" required aria-label="Activity">
     <input type="date" name="date" value="${s.date || today}" required aria-label="Date">
@@ -363,15 +382,18 @@ function sports() {
       <span class="muted">${[s.mins && s.mins + ' min', s.km && s.km + ' km'].filter(Boolean).join(', ')}</span>
       ${s.exercises ? `<div>${esc(s.exercises)}</div>` : ''}${s.note ? `<div class="muted">${esc(s.note)}</div>` : ''}</div>
       <span class="tag">${esc(owner(s.who))}</span>${editBtn(s.id)}<button class="ghost" data-act="delSport" data-id="${s.id}" aria-label="Delete activity">✕</button></li>`;
-  return `<h2>Sports</h2><p class="muted">This month so far.</p>
+  return `<h2>Sports</h2>
+  <div class="tabs">${[['week', 'This week'], ['month', 'This month'], ['all', 'All time']].map(([id, t]) => tab('srange', id, sportRange === id, t)).join('')}</div>
   <div class="grid" style="margin-bottom:1rem">
-    <div class="card"><div class="big">${mon.length}</div><p>activities<br><span class="muted">${esc(S.names[0])} ${per(0)}, ${esc(S.names[1])} ${per(1)}</span></p></div>
-    <div class="card"><div class="big">${Math.floor(mins / 60)}h ${mins % 60}m</div><p>total time</p></div>
-    <div class="card"><div class="big" style="font-size:2rem">${top ? esc(top[0]) : '–'}</div><p>${top ? `most frequent (${top[1]}×)` : 'nothing logged yet'}</p></div>
+    <div class="card"><p class="muted">Both of you combined</p><div class="big">${hm(tm(0) + tm(1))}</div><p class="muted">${hm(together)} done together, ${inR.length} activities</p></div>
+    ${[0, 1].map(i => `<div class="card"><p class="muted">${esc(S.names[i])}</p><div class="big">${hm(tm(i))}</div><p class="muted">${mine(i).length} activities, ${km(i).toFixed(1)} km</p></div>`).join('')}
   </div>
+  <p class="muted" style="margin-top:-.4rem">Activities done together count for both of you.</p>
+  ${bars.length ? `<div class="card"><h3>Time by activity</h3>${bars.map(([t, v]) => `<div class="bar"><span>${esc(t)}</span><div><i style="width:${Math.round(v / maxB * 100)}%"></i></div><b>${hm(v)}</b></div>`).join('')}</div>` : ''}
   <form class="card row" data-form="addSport"><h3 style="flex-basis:100%;margin:0">Log an activity</h3>${fields({})}<button class="primary">Add activity</button></form>
   <datalist id="sporttypes">${types.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
-  <div class="card"><ul class="items">${all.map(row).join('') || '<li class="muted">Nothing logged yet.</li>'}</ul></div>`;
+  <div class="tabs">${tab('swho', 'all', sportWho === 'all', 'Everyone')}${tab('swho', '0', sportWho === '0', esc(S.names[0]))}${tab('swho', '1', sportWho === '1', esc(S.names[1]))}</div>
+  <div class="card"><ul class="items">${list.map(row).join('') || '<li class="muted">Nothing logged yet.</li>'}</ul></div>`;
 }
 
 /* ---------- shell ---------- */
