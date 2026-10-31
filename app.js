@@ -123,11 +123,16 @@ function tasks() {
   const sec = ([o, title]) => {
     const mine = S.tasks.filter(x => x.owner == o), open = mine.filter(x => !x.done), done = mine.filter(x => x.done);
     return `<section class="card"><h3>${esc(title)}</h3>
-      <form class="row" data-form="addTask"><input type="hidden" name="owner" value="${o}"><input type="text" name="text" placeholder="Add a to-do" required aria-label="To-do for ${esc(title)}"><input type="date" name="due" aria-label="Due date"><button class="primary">Add</button></form>
       <ul class="items">${open.map(li).join('') || '<li class="muted">Nothing open.</li>'}</ul>
       ${done.length ? `<p class="muted" style="margin:.9rem 0 0">Done</p><ul class="items">${done.map(li).join('')}</ul>` : ''}</section>`;
   };
-  return `<h2>To-do</h2><div class="cols">${secs.map(sec).join('')}</div>
+  return `<h2>To-do</h2>
+  <form class="card row" data-form="addTask"><h3 style="flex-basis:100%;margin:0">New to-do</h3>
+    <input type="text" name="text" placeholder="What needs doing?" required aria-label="To-do">
+    <select name="owner" aria-label="For whom">${ownerOpts(2)}</select>
+    <input type="date" name="due" aria-label="Due date">
+    <button class="primary">Add to-do</button></form>
+  <div class="cols">${secs.map(sec).join('')}</div>
   ${S.tasks.some(x => x.done) ? '<p><button data-act="clearDone">Clear all done</button></p>' : ''}`;
 }
 
