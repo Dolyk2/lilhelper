@@ -118,6 +118,9 @@ ul.items li[data-w]{box-shadow:inset 4px 0 0 var(--wc);padding-left:.9rem}
 .cal button.sel .dots b{box-shadow:0 0 0 1.5px #1b0f31}
 .cal button.has::after{display:none}
 .bar[data-w] i{background:var(--wc)}
+.bgroup{margin:.8rem 0 1rem}
+.bhead{display:flex;justify-content:space-between;align-items:baseline}
+.bgroup .bar{margin:.25rem 0}
 .bar div i{display:block;height:100%}
 .bar div{display:flex}
 
@@ -142,6 +145,31 @@ a.btn,main a.btn{display:inline-block;padding:.55rem 1.1rem;border-radius:999px;
 .week{display:flex;gap:4px;margin-top:.35rem}
 .week i{width:14px;height:6px;border-radius:99px;background:var(--field)}
 .week i.on{background:var(--wc)}
+
+/* one-page home */
+.homehead{display:flex;justify-content:space-between;align-items:baseline;gap:.4rem 1rem;flex-wrap:wrap}
+.homehead h2{margin:0}.homehead h2 .muted{font-family:var(--body);font-weight:400;margin-left:.4rem}
+.chead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.4rem;gap:.5rem}
+.chead h3{margin:0}.chead a{font-size:.85rem}
+.sportrow{display:flex;align-items:baseline;gap:.6rem}
+.spot{width:100%;border:0;border-radius:14px;display:block}
+.ideas{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.5rem}
+.idea{display:flex;gap:.7rem;align-items:center;text-align:left;padding:.75rem .9rem;border-radius:16px;font-weight:600;background:var(--field)}
+.idea:hover{background:var(--accent-soft)}.idea .ic{font-size:1.5rem}
+@media (min-width:1100px){.home .span2{grid-column:span 2}}
+@media (min-width:1100px) and (min-height:640px){
+  main.onehome{overflow:hidden;max-width:none;padding-top:1.1rem;padding-bottom:1.1rem}
+  .onehome .homehead h2{font-size:1.6rem}
+  .onehome .home{height:calc(100vh - 4.6rem);grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:auto minmax(0,1fr) minmax(0,1fr);gap:.8rem;margin-top:.5rem}
+  .onehome .home .card{overflow:auto;padding:.8rem 1rem}
+  .onehome .hero{padding:.8rem 1.4rem}
+  .onehome .hero .big{font-size:2.4rem}
+  .onehome .herorow{gap:.6rem 2rem}.onehome .herorow .small .big{font-size:1.6rem}
+  .onehome .herorow p{margin:.2rem 0 0}
+  .onehome .home .memo{min-height:0;padding:0}
+  .onehome ul.items li{padding:.4rem 0 .4rem .9rem}
+}
+@media (max-width:760px){.home .card{padding:1rem}.home .memo{min-height:220px}}
 
 /* moving background */
 .bgfx{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}

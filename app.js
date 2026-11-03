@@ -38,9 +38,11 @@ const daysTo = m => {
 /* ---------- modules ---------- */
 const cal = { y: new Date().getFullYear(), m: new Date().getMonth(), sel: iso(new Date()) };
 let listTab = null;
-let songId = null, rotTimer = null, homePhotoId = null, sportRange = 'month', sportWho = 'all';
+let songAdd = false, goalOwner = 2, songId = null, rotTimer = null, homePhotoId = null, sportRange = 'month', sportWho = 'all';
 const legend = () => `<p class="legend">${[0, 1, 2].map(i => `<span class="tag who" data-w="${i}">${esc(owner(i))}</span>`).join(' ')}</p>`;
 const copyText = t => navigator.clipboard?.writeText(t).then(() => toast('Copied'));
+const spotifyId = u => (u || '').match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(track|album|playlist|artist|episode|show)\/([A-Za-z0-9]+)/);
+const GOAL_IDEAS = [['📖', 'Read 15 pages'], ['💧', 'Drink 2 liters of water'], ['🧘', 'Stretching, 10 minutes'], ['🚶', 'Walk 8 000 steps'], ['😴', 'In bed by 23:00'], ['🍎', 'Fruit or veg with every meal'], ['📵', 'One hour without phone'], ['✍️', 'Write 3 things you are grateful for']];
 const nextSong = () => { songId = null; render(); };
 const hm = m => `${Math.floor(m / 60)}h ${m % 60}m`;
 function shufflePhoto() { homePhotoId = null; render(); }
@@ -55,9 +57,9 @@ function home() {
   const byTime = (a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''));
   const evRow = (e, label) => `<li data-w="${e.who}"><span class="grow">${esc(e.title)}${e.location ? ` <span class="muted">at ${esc(e.location)}</span>` : ''}</span>${label ? `<span class="tag teal">${label}</span>` : ''}<span class="muted">${esc(e.time || 'all day')}</span></li>`;
   const label = k => { const n = Math.round((parse(k) - t0) / 864e5); return n === 1 ? 'Tomorrow' : parse(k).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }); };
-  const evs = S.events.filter(e => e.date === t).sort(byTime);
-  const coming = S.events.filter(e => e.date > t).sort(byTime).slice(0, 8);
-  const open = S.tasks.filter(x => !x.done).sort((a, b) => (a.due || '9').localeCompare(b.due || '9')).slice(0, 7);
+  const evs = S.events.filter(e => e.date === t).sort(byTime).slice(0, 4);
+  const coming = S.events.filter(e => e.date > t).sort(byTime).slice(0, 5);
+  const open = S.tasks.filter(x => !x.done).sort((a, b) => (a.due || '9').localeCompare(b.due || '9')).slice(0, 5);
   const ms = S.milestones.map(m => ({ ...m, n: daysTo(m) })).sort((a, b) => a.n - b.n).slice(0, 3);
   const lst = S.lists.slice(0, 4).map(l => ({ name: l.name, owner: l.owner ?? 2, open: l.items.filter(i => !i.done) }));
   const trip = S.events.filter(e => e.date >= t && e.lat != null && Math.round((parse(e.date) - t0) / 864e5) <= 9).sort(byTime)[0];
@@ -73,10 +75,12 @@ function home() {
   const longest = mon.reduce((a, s) => s.mins > (a?.mins || 0) ? s : a, null);
   const byT = {}; mon.forEach(s => byT[s.type] = (byT[s.type] || 0) + s.mins);
   const topT = Object.entries(byT).sort((a, b) => b[1] - a[1])[0];
-  const last = [...S.sports].sort((a, b) => b.date.localeCompare(a.date))[0];
-  const more = (id, txt) => `<p style="margin:.6rem 0 0"><a href="#${id}">${txt}</a></p>`;
+  const head = (title, id) => `<div class="chead"><h3>${title}</h3><a href="#${id}">Open</a></div>`;
   const hello = (h => h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening')(new Date().getHours());
-  return `<h2>${hello}, ${esc(S.names[0])} & ${esc(S.names[1])}</h2><p class="muted">${fmt(t)}</p>${legend()}
+  const player = !song ? `<p class="muted">Tap “+ Add” and paste a Spotify link to a song, album or playlist. A player shows up here.</p>`
+    : song.sid ? `<iframe class="spot" src="https://open.spotify.com/embed/${song.kind}/${song.sid}?theme=0" height="152" allow="encrypted-media; clipboard-write" loading="lazy" title="Spotify player"></iframe>`
+    : `<div class="songt">${esc(song.title)}</div><p class="muted">${esc(song.artist)}</p><a class="btn" href="https://open.spotify.com/search/${encodeURIComponent(song.title + ' ' + song.artist)}" target="_blank" rel="noopener">Find on Spotify</a>`;
+  return `<div class="homehead"><h2>${hello}, ${esc(S.names[0])} & ${esc(S.names[1])} <span class="muted">${fmt(t)}</span></h2>${legend()}</div>
   <div class="home">
     <section class="card span hero"><div class="herogrid">
       <div><h3>Special dates</h3>${ms.length
@@ -84,23 +88,21 @@ function home() {
         : `<p class="muted">Add an anniversary or birthday under Special dates.</p>`}</div>
       <div><h3>Weather</h3><div class="wxrow">${places.map(p => `<div class="wxplace"><span class="muted">${esc(p[0])}</span><div data-wx="${p[1]}|${p[2]}|${p[3]}">…</div></div>`).join('')}</div></div>
     </div></section>
-    <section class="card todaycard"><h3>Today</h3>${evs.length ? `<ul class="items">${evs.map(e => evRow(e)).join('')}</ul>` : `<p class="muted">Nothing planned today.</p>`}${more('calendar', 'Open calendar')}</section>
-    <section class="card"><h3>Song of the day</h3>${song
-      ? `<div class="songt">${esc(song.title)}</div><p class="muted">${esc(song.artist)}</p><p><a class="btn" href="https://open.spotify.com/search/${encodeURIComponent(song.title + ' ' + song.artist)}" target="_blank" rel="noopener">Find on Spotify</a> <button onclick="nextSong()">Another</button> <button class="ghost" data-act="delSong" data-id="${song.id}">Remove</button></p>`
-      : `<p class="muted">Add your favourite songs and a suggestion shows up here.</p>`}
-      <form class="row" data-form="addSong" style="margin:.4rem 0 0"><input type="text" name="title" placeholder="Song" required aria-label="Song"><input type="text" name="artist" placeholder="Artist" aria-label="Artist"><button>Add</button></form></section>
-    <section class="card"><h3>Coming up</h3>${coming.length ? `<ul class="items">${coming.map(e => evRow(e, label(e.date))).join('')}</ul>` : `<p class="muted">No upcoming events. Add one in the Calendar.</p>`}${more('calendar', 'Open calendar')}</section>
-    <section class="card"><h3>Open to-dos</h3>${open.length ? `<ul class="items">${open.map(x => `<li data-w="${x.owner}"><span class="grow">${esc(x.text)}${x.due ? ` <span class="muted">due ${fmt(x.due)}</span>` : ''}</span></li>`).join('')}</ul>` : `<p class="muted">All done. Add a new to-do when something comes up.</p>`}${more('tasks', 'All to-dos')}</section>
+    <section class="card todaycard">${head('Today', 'calendar')}${evs.length ? `<ul class="items">${evs.map(e => evRow(e)).join('')}</ul>` : `<p class="muted">Nothing planned today.</p>`}</section>
+    <section class="card">${head('Coming up', 'calendar')}${coming.length ? `<ul class="items">${coming.map(e => evRow(e, label(e.date))).join('')}</ul>` : `<p class="muted">No upcoming events.</p>`}</section>
+    <section class="card">${head('To-dos', 'tasks')}${open.length ? `<ul class="items">${open.map(x => `<li data-w="${x.owner}"><span class="grow">${esc(x.text)}${x.due ? ` <span class="muted">${fmt(x.due)}</span>` : ''}</span></li>`).join('')}</ul>` : `<p class="muted">All done.</p>`}</section>
     <section class="card memo">${hp && sb
       ? `<button class="memophoto" onclick="openViewer('${hp.id}')" aria-label="Open photo"><img data-photo="${hp.path}" alt="Memory from ${fmt(hp.date)}"></button><div class="memocap"><span>${fmt(hp.date)}</span></div>`
-      : `<div class="memoempty"><h3>Memory</h3><p class="muted">Add photos to a day in the Calendar. They appear here and change every few seconds.</p></div>`}</section>
-    <section class="card"><h3>Sports this month</h3>${mon.length
-      ? `<div class="big">${hm(tm(0) + tm(1))}</div><p class="muted">both of you combined</p>
+      : `<div class="memoempty"><h3>Memory</h3><p class="muted">Add photos to a day in the Calendar. They show here and change every few seconds.</p></div>`}</section>
+    <section class="card music"><div class="chead"><h3>Our music</h3><span><button class="ghost" onclick="nextSong()">Shuffle</button><button class="ghost" onclick="songAdd=!songAdd;render()">${songAdd ? 'Close' : '+ Add'}</button></span></div>${player}
+      ${songAdd ? `<form class="row" data-form="addSong" style="margin:.6rem 0 0"><input type="text" name="url" placeholder="Paste a Spotify link" required aria-label="Spotify link"><button class="primary">Add</button></form>` : ''}
+      ${song ? `<button class="ghost" data-act="delSong" data-id="${song.id}">Remove this one</button>` : ''}</section>
+    <section class="card">${head('Sports this month', 'sports')}${mon.length
+      ? `<div class="sportrow"><div class="big">${hm(tm(0) + tm(1))}</div><span class="muted">combined</span></div>
         ${[0, 1].map(i => `<div class="bar" data-w="${i}"><span>${esc(S.names[i])}</span><div><i style="width:${Math.round(tm(i) / mx * 100)}%"></i></div><b>${hm(tm(i))}</b></div>`).join('')}
-        <div class="chips"><span class="chip"><b>${mon.length}</b> activities</span><span class="chip"><b>${S.sports.filter(s => s.date >= wkStart).length}</b> this week</span><span class="chip"><b>${kmTot.toFixed(0)}</b> km</span>${topT ? `<span class="chip">top: <b>${esc(topT[0])}</b></span>` : ''}${longest ? `<span class="chip">longest <b>${hm(longest.mins)}</b></span>` : ''}</div>
-        ${last ? `<p class="muted">Last: ${esc(last.type)} on ${fmt(last.date)}</p>` : ''}`
-      : `<p class="muted">Nothing logged this month.</p>`}${more('sports', 'Open sports')}</section>
-    <section class="card span"><h3>Lists</h3><div class="listgrid">${lst.length ? lst.map(l => `<div class="mini" data-w="${l.owner}"><strong>${esc(l.name)}</strong> <span class="tag who">${l.open.length} open</span><div class="muted">${l.open.length ? esc(l.open.slice(0, 4).map(i => i.text).join(', ')) + (l.open.length > 4 ? '…' : '') : 'All done'}</div></div>`).join('') : `<p class="muted">No lists yet.</p>`}</div>${more('lists', 'All lists')}</section>
+        <div class="chips"><span class="chip"><b>${mon.length}</b> activities</span><span class="chip"><b>${S.sports.filter(s => s.date >= wkStart).length}</b> this week</span><span class="chip"><b>${kmTot.toFixed(0)}</b> km</span>${topT ? `<span class="chip">top <b>${esc(topT[0])}</b></span>` : ''}${longest ? `<span class="chip">longest <b>${hm(longest.mins)}</b></span>` : ''}</div>`
+      : `<p class="muted">Nothing logged this month.</p>`}</section>
+    <section class="card span2">${head('Lists', 'lists')}<div class="listgrid">${lst.length ? lst.map(l => `<div class="mini" data-w="${l.owner}"><strong>${esc(l.name)}</strong> <span class="tag who">${l.open.length} open</span><div class="muted">${l.open.length ? esc(l.open.slice(0, 3).map(i => i.text).join(', ')) + (l.open.length > 3 ? '…' : '') : 'All done'}</div></div>`).join('') : `<p class="muted">No lists yet.</p>`}</div></section>
   </div>`;
 }
 
@@ -240,6 +242,7 @@ const A = {
   srange: id => { sportRange = id; },
   swho: id => { sportWho = id; },
   delSong: id => { S.songs = S.songs.filter(s => s.id !== id); songId = null; },
+  preset: t => { if (GOAL_IDEAS.some(i => i[1] === t) && !S.goals.some(g => g.text === t)) S.goals.push({ id: uid(), text: t, owner: goalOwner, days: {} }); },
   toggleGoal: id => { const g = S.goals.find(x => x.id === id), t = iso(new Date()); if (g.days[t]) delete g.days[t]; else g.days[t] = 1; },
   delGoal: id => { S.goals = S.goals.filter(g => g.id !== id); },
   delSport: id => { S.sports = S.sports.filter(s => s.id !== id); },
@@ -265,7 +268,7 @@ const F = {
   saveMs: d => Object.assign(S.milestones.find(x => x.id === d.id), { title: d.title.trim(), date: d.date, repeat: !!d.repeat }),
   addSport: d => S.sports.push({ id: uid(), ...sportData(d) }),
   saveSport: d => Object.assign(S.sports.find(x => x.id === d.id), sportData(d)),
-  addSong: d => S.songs.push({ id: uid(), title: d.title.trim(), artist: (d.artist || '').trim() }),
+  addSong: d => { const m = spotifyId(d.url); if (!m) { toast('That does not look like a Spotify link.'); return; } S.songs.push({ id: uid(), kind: m[1], sid: m[2] }); songAdd = false; songId = null; },
   addGoal: d => S.goals.push({ id: uid(), text: d.text.trim(), owner: +d.owner, days: {} }),
   saveGoal: d => Object.assign(S.goals.find(x => x.id === d.id), { text: d.text.trim(), owner: +d.owner }),
   saveToken: d => { S.calToken = d.token.trim(); },
@@ -440,6 +443,8 @@ function goals() {
       <div class="grow">${esc(g.text)}<div class="week" aria-label="Last 7 days">${week(g)}</div></div><span class="muted">${streak(g)} day streak</span><span class="tag who">${esc(owner(g.owner))}</span>${editBtn(g.id)}<button class="ghost" data-act="delGoal" data-id="${g.id}" aria-label="Delete goal">✕</button></li>`;
   return `<h2>Daily goals</h2><p class="muted">${done} of ${S.goals.length} done today</p>
   <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
+  ${GOAL_IDEAS.some(([, t]) => !S.goals.some(g => g.text === t)) ? `<div class="card"><div class="chead"><h3>Popular goals</h3><label class="muted">For <select onchange="goalOwner=+this.value" aria-label="Who is it for">${ownerOpts(goalOwner)}</select></label></div>
+    <div class="ideas">${GOAL_IDEAS.filter(([, t]) => !S.goals.some(g => g.text === t)).map(([ic, t]) => `<button class="idea" data-act="preset" data-id="${esc(t)}"><span class="ic">${ic}</span>${esc(t)}</button>`).join('')}</div></div>` : ''}
   <form class="card row" data-form="addGoal"><h3 style="flex-basis:100%;margin:0">New daily goal</h3>
     <input type="text" name="text" placeholder="e.g. 10 000 steps, read 20 minutes, no sugar" required aria-label="Goal">
     <select name="owner" aria-label="For whom">${ownerOpts(2)}</select><button class="primary">Add goal</button></form>
@@ -463,6 +468,7 @@ function sports() {
   const byType = {}; inR.forEach(s => { (byType[s.type] ||= [0, 0, 0])[s.who] += s.mins; });
   const sum3 = v => v[0] + v[1] + v[2];
   const bars = Object.entries(byType).sort((a, b) => sum3(b[1]) - sum3(a[1])).slice(0, 6), maxB = bars[0] ? sum3(bars[0][1]) : 1;
+  const maxS = Math.max(1, ...bars.flatMap(([, v]) => v));
   const list = inR.filter(s => sportWho === 'all' || has(s, +sportWho));
   const tab = (act, id, on, txt) => `<button class="${on ? 'on' : ''}" data-act="${act}" data-id="${id}">${txt}</button>`;
   const types = [...new Set([...SPORT_TYPES, ...S.sports.map(s => s.type)])];
@@ -486,7 +492,7 @@ function sports() {
     ${[0, 1].map(i => `<div class="card" data-w="${i}"><p class="muted">${esc(S.names[i])}</p><div class="big">${hm(tm(i))}</div><p class="muted">${mine(i).length} activities, ${km(i).toFixed(1)} km</p></div>`).join('')}
   </div>
   <p class="muted" style="margin-top:-.4rem">Activities done together count for both of you.</p>
-  ${bars.length ? `<div class="card"><h3>Time by activity</h3>${legend()}${bars.map(([t, v]) => `<div class="bar"><span>${esc(t)}</span><div>${[0, 1, 2].map(w => v[w] ? `<i data-w="${w}" style="width:${v[w] / maxB * 100}%"></i>` : '').join('')}</div><b>${hm(sum3(v))}</b></div>`).join('')}</div>` : ''}
+  ${bars.length ? `<div class="card"><h3>Time by activity</h3>${legend()}${bars.map(([t, v]) => `<div class="bgroup"><div class="bhead"><strong>${esc(t)}</strong><span class="muted">${hm(sum3(v))} in total</span></div>${[0, 1, 2].filter(w => v[w]).map(w => `<div class="bar" data-w="${w}"><span>${esc(owner(w))}</span><div><i style="width:${Math.round(v[w] / maxS * 100)}%"></i></div><b>${hm(v[w])}</b></div>`).join('')}</div>`).join('')}</div>` : ''}
   <form class="card row" data-form="addSport"><h3 style="flex-basis:100%;margin:0">Log an activity</h3>${fields({})}<button class="primary">Add activity</button></form>
   <datalist id="sporttypes">${types.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
   <div class="tabs">${tab('swho', 'all', sportWho === 'all', 'Everyone')}${tab('swho', '0', sportWho === '0', esc(S.names[0]))}${tab('swho', '1', sportWho === '1', esc(S.names[1]))}</div>
@@ -503,6 +509,7 @@ function render() {
   document.getElementById('brand').textContent = S.names.join(' + ');
   const y = view.scrollTop;
   view.innerHTML = m.render();
+  view.classList.toggle('onehome', m.id === 'home');
   view.scrollTop = y;
   if (editing) view.querySelector('.editing input[type=text], .editing textarea')?.focus();
   hydrate(); fillWeather();
