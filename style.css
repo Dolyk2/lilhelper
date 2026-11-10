@@ -62,6 +62,8 @@ ul.items .grow{flex:1;min-width:0}
 li.done .grow{text-decoration:line-through;color:var(--muted)}
 .tag{font-size:.78rem;padding:.12rem .65rem;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-weight:600;white-space:nowrap}
 .tag.teal{background:var(--sea-soft);color:var(--teal)}
+.tag.warn{background:rgba(255,120,90,.18);color:#ff8a6b}
+li.past{opacity:.6}
 
 /* calendar */
 .calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
@@ -72,15 +74,14 @@ li.done .grow{text-decoration:line-through;color:var(--muted)}
 .cal button{aspect-ratio:1;padding:0;position:relative;border-radius:16px;font-weight:600;background:var(--field)}
 .cal button.today{box-shadow:inset 0 0 0 2px var(--teal)}
 .cal button.sel{background:var(--accent);color:#1b0f31;box-shadow:none}
-.cal button.has::after{content:"";position:absolute;bottom:22%;left:50%;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:var(--accent)}
-.cal button.sel.has::after{background:#fff}
 .cal .blank{visibility:hidden}
+.cal .msmark{position:absolute;top:8%;right:12%;font-style:normal;font-size:.7rem;line-height:1;color:var(--accent)}
+.cal button.sel .msmark,.cal button.pic .msmark{color:#fff}
 
 .cal button span{position:relative}
 .cal button.pic{background-size:cover;background-position:center;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)}
 .cal button.pic::before{content:"";position:absolute;inset:0;border-radius:inherit;background:rgba(36,25,54,.35)}
 .cal button.pic.sel{outline:3px solid var(--accent);outline-offset:-3px}
-.cal button.pic.has::after{background:#fff}
 .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-bottom:.8rem}
 .thumb{padding:0;aspect-ratio:1;border-radius:14px;overflow:hidden;background:var(--field)}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
@@ -93,10 +94,6 @@ li.done .grow{text-decoration:line-through;color:var(--muted)}
 .calwrap .card,.daypanel .card{margin-bottom:1rem}
 .daypanel{scroll-margin-top:5.5rem;min-width:0}
 @media (max-width:1000px){.calwrap{grid-template-columns:1fr}.cal button{aspect-ratio:1.2}}
-.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1rem;align-items:start;margin-bottom:1rem}
-.cols .card{margin:0}
-.homephoto{display:block;width:100%;padding:0;border-radius:16px;overflow:hidden;aspect-ratio:4/3;background:var(--field)}
-.homephoto img{width:100%;height:100%;object-fit:cover;display:block}
 .bar{display:grid;grid-template-columns:7rem 1fr auto;gap:.6rem;align-items:center;margin:.45rem 0}
 .bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bar div{height:10px;border-radius:99px;background:var(--field);overflow:hidden}
@@ -116,12 +113,10 @@ ul.items li[data-w]{box-shadow:inset 4px 0 0 var(--wc);padding-left:.9rem}
 .dots{position:absolute;bottom:12%;left:0;right:0;display:flex;justify-content:center;gap:3px}
 .dots b{width:6px;height:6px;border-radius:50%;background:var(--wc)}
 .cal button.sel .dots b{box-shadow:0 0 0 1.5px #1b0f31}
-.cal button.has::after{display:none}
 .bar[data-w] i{background:var(--wc)}
 .bgroup{margin:.8rem 0 1rem}
 .bhead{display:flex;justify-content:space-between;align-items:baseline}
 .bgroup .bar{margin:.25rem 0}
-.bar div i{display:block;height:100%}
 .bar div{display:flex}
 
 /* home extras */
@@ -213,8 +208,6 @@ article.note>div{white-space:pre-wrap}
 .mini{padding:.7rem .9rem;border-radius:14px;margin-bottom:.55rem;background:var(--sun-soft)}
 .mini:nth-of-type(2){background:var(--sea-soft)}
 .mini:nth-of-type(3){background:var(--accent-soft)}
-.mini .note{white-space:pre-wrap;color:var(--ink);opacity:.75}
-.mini.pin strong{color:var(--accent)}
 
 @media (prefers-reduced-motion:no-preference){
   .hero{animation:rise .8s cubic-bezier(.2,.7,.2,1) both}
