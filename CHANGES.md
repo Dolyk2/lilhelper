@@ -1,8 +1,18 @@
-# Changes – 10 Nov 2026
+# Changes
 
-Originals are kept untouched in `backup-original/`.
+Current version is shown at the bottom of **Settings**.
 
-## Bugs fixed
+## 1.2 – 10 Nov 2026
+- **Version number** at the bottom of Settings, so you can see if your phone has the latest version.
+- **Notes can belong to someone** (you, your partner or both), like the other tabs, with a colour stripe, a name tag and an Everyone / per-person filter. Older notes count as "Both".
+- **Phone notifications** when your partner adds something (event, to-do, note, list item, special date, sport, goal, song, photo). Needs a one-time setup in Supabase, see `NOTIFICATIONS-SETUP.md`.
+- Added `manifest.json` (better "Add to Home Screen" app on phones) and `sw.js` (shows the notifications; it caches nothing, so updates still load straight away).
+
+## 1.1 – 10 Nov 2026
+
+Originals are kept untouched in `backup-original/` (on the Mac).
+
+### Bugs fixed
 - **Edits from both of you could be lost.** Each save used to overwrite the whole shared record, so if you both changed something within ~15 s, one person's change disappeared. Saving now checks whether the online copy changed in the meantime and merges both sets of changes item by item.
 - **A failed save was never retried**, and it also stopped your partner's changes from loading on that device. Saves now retry automatically, also when the connection comes back.
 - **Unsaved changes are no longer lost when you close or reload the tab.** They are remembered and uploaded on the next visit, and saved right away when you lock your phone or switch apps.
@@ -17,7 +27,7 @@ Originals are kept untouched in `backup-original/`.
 - **Calendar link** in Settings wasn't URL-encoded.
 - **Clicking an item your partner just deleted** could crash the page.
 
-## Improvements
+### Improvements
 - Asks before deleting a whole list, a note, a goal (streak history) or clearing finished to-dos.
 - Overdue to-dos get an "overdue" tag (on Home and on To-do).
 - Special dates show on the calendar (♥) and on the selected day; repeating dates show how many years it's been.
@@ -27,6 +37,6 @@ Originals are kept untouched in `backup-original/`.
 - "Sync now" says whether everything is up to date.
 - Removed unused CSS; cache version bumped to `v=7` so phones load the new files.
 
-## Not changed
+### Not changed
 - `apple-icon-v2.png`, `apple-icon-v3.png` and `icon.png` are not used anywhere (only `apple-icon-v4.png` is). They can be deleted.
 - When your partner's change arrives while you're on Home, the Spotify player reloads (and stops playing).

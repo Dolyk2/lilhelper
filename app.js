@@ -2,6 +2,7 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
+const APP_VERSION = '1.2', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
@@ -50,7 +51,7 @@ const mins = s => +s.mins || 0, kms = s => +s.km || 0;
 
 /* ---------- modules ---------- */
 const cal = { y: new Date().getFullYear(), m: new Date().getMonth(), sel: iso(new Date()) };
-let listTab = null;
+let listTab = null, noteWho = 'all';
 let songAdd = false, goalOwner = 2, songId = null, rotTimer = null, homePhotoId = null, sportRange = 'month', sportWho = 'all';
 const legend = () => `<p class="legend">${[0, 1, 2].map(i => `<span class="tag who" data-w="${i}">${esc(owner(i))}</span>`).join(' ')}</p>`;
 const copyText = t => navigator.clipboard ? navigator.clipboard.writeText(t).then(() => toast('Copied'), () => toast('Could not copy. Select the text and copy it by hand.')) : toast('Copying is not supported here. Select the text and copy it by hand.');
@@ -176,15 +177,18 @@ function tasks() {
 }
 
 function notes() {
-  const sorted = [...S.notes].sort((a, b) => (b.pin - a.pin) || b.at - a.at);
+  const own = n => n.owner ?? 2; // notes made before owners existed belong to both
+  const sorted = [...S.notes].filter(n => noteWho === 'all' || own(n) == noteWho || own(n) == 2).sort((a, b) => (b.pin - a.pin) || b.at - a.at);
   const card = n => editing === n.id
-    ? `<form class="card editing" data-form="saveNote">${hid(n.id)}<input type="text" name="title" value="${esc(n.title)}" placeholder="Title (optional)" style="width:100%;margin-bottom:.5rem" aria-label="Title"><textarea name="body" required aria-label="Note">${esc(n.body)}</textarea><p>${formBtns}</p></form>`
-    : `<article class="card note ${n.pin ? 'pin' : ''}"><h3>${esc(n.title || 'Untitled')}</h3><div>${esc(n.body)}</div>
+    ? `<form class="card editing" data-form="saveNote">${hid(n.id)}<div class="row" style="display:flex;gap:.55rem;margin-bottom:.5rem"><input type="text" name="title" value="${esc(n.title)}" placeholder="Title (optional)" aria-label="Title"><select name="owner" aria-label="Whose note">${ownerOpts(own(n))}</select></div><textarea name="body" required aria-label="Note">${esc(n.body)}</textarea><p>${formBtns}</p></form>`
+    : `<article class="card note ${n.pin ? 'pin' : ''}" data-w="${own(n)}"><div class="chead"><h3>${n.pin ? '📌 ' : ''}${esc(n.title || 'Untitled')}</h3><span class="tag who">${esc(owner(own(n)))}</span></div><div>${esc(n.body)}</div>
     <p class="muted">${new Date(n.at).toLocaleDateString()} ${editBtn(n.id)}<button class="ghost" data-act="pinNote" data-id="${n.id}">${n.pin ? 'Unpin' : 'Pin'}</button><button class="ghost" data-act="delNote" data-id="${n.id}">Delete</button></p></article>`;
+  const tab = (id, txt) => `<button class="${noteWho === id ? 'on' : ''}" data-act="nwho" data-id="${id}">${txt}</button>`;
   return `<h2>Notes</h2>
-  <form class="card" data-form="addNote"><input type="text" name="title" placeholder="Title (optional)" style="width:100%;margin-bottom:.5rem" aria-label="Title">
+  <form class="card" data-form="addNote"><div style="display:flex;gap:.55rem;margin-bottom:.5rem;flex-wrap:wrap"><input type="text" name="title" placeholder="Title (optional)" aria-label="Title"><select name="owner" aria-label="Whose note">${ownerOpts(2)}</select></div>
     <textarea name="body" placeholder="Gift ideas, things she said she likes, places to try…" required aria-label="Note"></textarea><p><button class="primary">Save note</button></p></form>
-  ${sorted.map(card).join('')}`;
+  ${S.notes.length ? `<div class="tabs">${tab('all', 'Everyone')}${tab('0', esc(S.names[0]))}${tab('1', esc(S.names[1]))}</div>` : ''}
+  ${sorted.map(card).join('') || (S.notes.length ? '<p class="muted">No notes for this person.</p>' : '')}`;
 }
 
 function lists() {
@@ -223,8 +227,10 @@ function settings() {
     <form class="row" data-form="saveToken"><input type="text" name="token" value="${esc(S.calToken || '')}" placeholder="Calendar code (CAL_TOKEN)" aria-label="Calendar code"><button class="primary">Save</button></form>
     ${S.calToken ? `<p class="muted" style="word-break:break-all">${esc(calLink())}</p><button onclick="copyText(this.dataset.t)" data-t="${esc(calLink())}">Copy link</button> <button onclick="copyText(this.dataset.t)" data-t="${esc(calLink().replace('https://', 'webcal://'))}">Copy webcal link</button>` : ''}</div>` : ''}
   ${sb ? `<div class="card"><h3>Account</h3><p class="muted">You are logged in. Changes reach your partner within about 15 seconds.</p><p class="muted" role="status">${esc(syncInfo)}${dirty ? ' · some changes are not saved online yet' : ''}</p><button onclick="syncNow()">Sync now</button> <button data-act="logout">Log out</button></div>` : ''}
+  ${notifyCard()}
   <div class="card"><h3>Backup</h3><p class="muted">${sb ? 'Your data is saved online. A backup file is still a good safety net.' : 'Data is stored in this browser only. Export a copy now and then.'}</p>
-    <button data-act="export">Export backup</button> <label><button type="button" onclick="this.nextElementSibling.click()">Import backup</button><input type="file" id="imp" accept=".json" hidden></label></div>`;
+    <button data-act="export">Export backup</button> <label><button type="button" onclick="this.nextElementSibling.click()">Import backup</button><input type="file" id="imp" accept=".json" hidden></label></div>
+  <p class="muted version">Version ${APP_VERSION} · ${APP_DATE}</p>`;
 }
 
 const MODS = [
@@ -259,12 +265,16 @@ const A = {
   delMs: id => { S.milestones = S.milestones.filter(m => m.id !== id); },
   srange: id => { sportRange = id; },
   swho: id => { sportWho = id; },
+  nwho: id => { noteWho = id; },
   delSong: id => { S.songs = S.songs.filter(s => s.id !== id); songId = null; },
   preset: t => { if (GOAL_IDEAS.some(i => i[1] === t) && !S.goals.some(g => g.text === t)) S.goals.push({ id: uid(), text: t, owner: goalOwner, days: {} }); },
   toggleGoal: id => { const g = S.goals.find(x => x.id === id), t = iso(new Date()); if (!g) return; g.days ||= {}; if (g.days[t]) delete g.days[t]; else g.days[t] = 1; },
   delGoal: id => { if (confirm('Delete this goal and its streak history?')) S.goals = S.goals.filter(g => g.id !== id); },
   delSport: id => { S.sports = S.sports.filter(s => s.id !== id); },
   logout: () => { logout(); },
+  notifyOn: () => { notifyOn(); },
+  notifyOff: () => { notifyOff(); },
+  notifyTest: () => { notifyTest(); },
   export: () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' }));
@@ -276,13 +286,13 @@ const curList = () => S.lists.find(l => l.id === listTab);
 const F = {
   addEvent: d => { const e = { id: uid(), date: d.date, title: d.title.trim(), time: d.time, who: +d.who, location: (d.location || '').trim() }; S.events.push(e); goTo(d.date); geocodeEvent(e); },
   addTask: d => S.tasks.push({ id: uid(), text: d.text.trim(), owner: +d.owner, due: d.due, done: false }),
-  addNote: d => S.notes.push({ id: uid(), title: d.title.trim(), body: d.body.trim(), pin: false, at: Date.now() }),
+  addNote: d => S.notes.push({ id: uid(), title: d.title.trim(), body: d.body.trim(), owner: +d.owner, pin: false, at: Date.now() }),
   addList: d => { const l = { id: uid(), name: d.name.trim(), owner: +d.owner, items: [] }; S.lists.push(l); listTab = l.id; },
   addItem: d => curList()?.items.push({ id: uid(), text: d.text.trim(), done: false }),
   addMs: d => S.milestones.push({ id: uid(), title: d.title.trim(), date: d.date, repeat: !!d.repeat }),
   saveEvent: d => { const e = S.events.find(x => x.id === d.id); Object.assign(e, { title: d.title.trim(), date: d.date, time: d.time, who: +d.who }); const loc = (d.location || '').trim(); if (loc !== (e.location || '')) { e.location = loc; e.lat = e.lon = null; geocodeEvent(e); } goTo(d.date); },
   saveTask: d => Object.assign(S.tasks.find(x => x.id === d.id), { text: d.text.trim(), owner: +d.owner, due: d.due }),
-  saveNote: d => Object.assign(S.notes.find(x => x.id === d.id), { title: d.title.trim(), body: d.body.trim() }),
+  saveNote: d => Object.assign(S.notes.find(x => x.id === d.id), { title: d.title.trim(), body: d.body.trim(), owner: +d.owner }),
   saveItem: d => { const i = curList()?.items.find(x => x.id === d.id); if (i) i.text = d.text.trim(); },
   saveList: d => { Object.assign(S.lists.find(l => l.id === d.id), { name: d.name.trim(), owner: +d.owner }); },
   saveMs: d => Object.assign(S.milestones.find(x => x.id === d.id), { title: d.title.trim(), date: d.date, repeat: !!d.repeat }),
@@ -374,6 +384,7 @@ async function doPush() {
     const { data, error } = await q.select('updated_at');
     if (error) throw error;
     if (data.length) {
+      tellPartner(remote, payload);
       setBase(payload, data[0].updated_at);
       if (ver === sentVer) setDirty(false);
       syncInfo = 'Last saved online at ' + stamp();
@@ -421,6 +432,7 @@ async function boot() {
     const { data } = await sb.auth.getSession();
     authed = !!data.session;
     if (authed) await pull(true);
+    await checkPush();
     setInterval(() => { if (authed && !document.hidden) pull(); }, 15000);
     /* coming back to the tab: fetch news; leaving it (e.g. locking the phone): save right away */
     document.addEventListener('visibilitychange', () => { if (authed) document.hidden ? dirty && push() : pull(); });
@@ -498,6 +510,80 @@ function openViewer(id) {
   };
   box.querySelector('[data-x=close]').focus();
   show();
+}
+
+/* ---------- phone notifications (Web Push via the Supabase function "notify") ---------- */
+const ME_KEY = KEY + '-me';
+const me = () => { const v = ls.get(ME_KEY); return v === 0 || v === 1 ? v : null; }; // who uses this device (not synced)
+const pushReady = () => !!(sb && CFG.VAPID_PUBLIC_KEY && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let pushSub = null; // this device's subscription, if any
+const b64ToBytes = s => { const b = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); };
+async function swReg() { return navigator.serviceWorker.register('sw.js'); }
+async function checkPush() {
+  if (!pushReady()) return;
+  try { const r = await navigator.serviceWorker.getRegistration(); pushSub = r ? await r.pushManager.getSubscription() : null; } catch { pushSub = null; }
+}
+async function notifyOn() {
+  if (me() === null) { toast('First choose who uses this device.'); return; }
+  try {
+    if (await Notification.requestPermission() !== 'granted') { toast('Notifications are blocked. Allow them in the phone settings for this app.'); return; }
+    const reg = await swReg(); await navigator.serviceWorker.ready;
+    pushSub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(CFG.VAPID_PUBLIC_KEY) });
+    const { error } = await sb.from('push_subs').upsert({ endpoint: pushSub.endpoint, sub: pushSub.toJSON(), who: me() });
+    if (error) throw error;
+    toast('Notifications are on for this device');
+  } catch (e) { toast('Could not turn on notifications: ' + (e.message || e)); }
+  render();
+}
+async function notifyOff() {
+  try {
+    if (pushSub) { await sb.from('push_subs').delete().eq('endpoint', pushSub.endpoint); await pushSub.unsubscribe(); }
+    pushSub = null; toast('Notifications are off for this device');
+  } catch (e) { toast('Could not turn off: ' + (e.message || e)); }
+  render();
+}
+async function callNotify(body) {
+  const { data, error } = await sb.functions.invoke('notify', { body });
+  if (error) throw error;
+  return data;
+}
+async function notifyTest() {
+  try { const r = await callNotify({ test: true, endpoint: pushSub?.endpoint }); toast(r?.sent ? 'Test sent, it should arrive in a few seconds' : 'Nothing was sent. Is this device turned on?'); }
+  catch (e) { toast('Test failed: ' + (e.message || e) + '. Is the "notify" function set up in Supabase?'); }
+}
+/* What did this device add compared with the server copy? Used to tell the partner. */
+const KINDS = [['events', 'Calendar', x => x.title], ['tasks', 'To-do', x => x.text], ['notes', 'Notes', x => x.title || x.body], ['milestones', 'Special dates', x => x.title],
+  ['sports', 'Sports', x => x.type], ['goals', 'Goals', x => x.text], ['songs', 'Music', () => 'a song'], ['photos', 'Memories', () => 'a photo']];
+function addedItems(before, after) {
+  const out = [], ids = a => new Set((Array.isArray(a) ? a : []).map(x => x.id));
+  for (const [k, label, txt] of KINDS) { const old = ids(before?.[k]); (after[k] || []).filter(x => !old.has(x.id)).forEach(x => out.push({ where: label, what: String(txt(x) || '').slice(0, 80) })); }
+  const oldLists = new Map((before?.lists || []).map(l => [l.id, ids(l.items)]));
+  for (const l of after.lists || []) {
+    const old = oldLists.get(l.id);
+    if (!old) out.push({ where: 'Lists', what: `new list "${l.name}"` });
+    (l.items || []).filter(i => old && !old.has(i.id)).forEach(i => out.push({ where: l.name, what: i.text }));
+  }
+  return out;
+}
+function tellPartner(before, after) {
+  if (!pushReady() || !before || !Object.keys(before).length) return;
+  const items = addedItems(before, after);
+  if (items.length) callNotify({ by: me(), items: items.slice(0, 10), endpoint: pushSub?.endpoint }).catch(() => { /* function not set up: no notification */ });
+}
+const whoOpts = () => [0, 1].map(i => `<option value="${i}" ${me() === i ? 'selected' : ''}>${esc(S.names[i])}</option>`).join('');
+function notifyCard() {
+  if (!sb) return '';
+  let body;
+  if (!CFG.VAPID_PUBLIC_KEY) body = '<p class="muted">Not set up yet: add VAPID_PUBLIC_KEY to config.js (see NOTIFICATIONS-SETUP.md).</p>';
+  else if (isIOS && !standalone) body = '<p class="muted">On iPhone this only works from the home screen app: tap Share → “Add to Home Screen”, open Us from there and come back here.</p>';
+  else if (!pushReady()) body = '<p class="muted">This browser does not support notifications.</p>';
+  else body = `<p class="muted">Get a notification when ${me() === null ? 'your partner' : esc(S.names[1 - me()])} adds something.</p>
+    ${pushSub ? '<p><span class="tag teal">On for this device</span></p><button data-act="notifyTest">Send a test</button> <button data-act="notifyOff">Turn off</button>'
+      : '<button class="primary" data-act="notifyOn">Turn on notifications</button>'}`;
+  return `<div class="card"><h3>Notifications</h3>
+    <label class="muted">This device belongs to <select data-me aria-label="Who uses this device"><option value="">choose…</option>${whoOpts()}</select></label>${body}</div>`;
 }
 
 /* ---------- weather (Open-Meteo, no key needed) + event places ---------- */
@@ -628,7 +714,7 @@ function render() {
   hydrate(); fillWeather();
   clearInterval(rotTimer); if (m.id === 'home' && sb && S.photos.length > 1) rotTimer = setInterval(rotatePhoto, 9000);
 }
-const UI_ONLY = new Set(['pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'logout', 'export']);
+const UI_ONLY = new Set(['pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
 document.addEventListener('submit', e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
   if (f.dataset.form === 'login') { e.preventDefault(); login(new FormData(f)); return; }
@@ -644,6 +730,11 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   const b = e.target.closest('[data-act]');
   if (b && b.type === 'checkbox' && A[b.dataset.act]) { A[b.dataset.act](b.dataset.id); save(); render(); }
+  if (e.target.matches('[data-me]')) {
+    if (e.target.value === '') ls.del(ME_KEY); else ls.set(ME_KEY, +e.target.value);
+    if (pushSub && me() !== null) sb.from('push_subs').upsert({ endpoint: pushSub.endpoint, sub: pushSub.toJSON(), who: me() });
+    render();
+  }
   if (e.target.id === 'imp' && e.target.files[0]) {
     const input = e.target;
     input.files[0].text().then(t => {

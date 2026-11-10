@@ -1,0 +1,13 @@
+{
+  "name": "Us – our little helper",
+  "short_name": "Us",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#150d24",
+  "theme_color": "#150d24",
+  "icons": [
+    { "src": "apple-icon-v4.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
