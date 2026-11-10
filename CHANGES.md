@@ -2,6 +2,17 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.4 – 10 Nov 2026
+- **Whole app checked and tidied on computer, laptop, tablet and phone.**
+- Home: cleaner special dates (next one big, the following three as a list with dates), the "Today" card is gone (today's plans are in the weather panel), event and to-do rows show the title with time/place underneath instead of squashing, new **Goals today** card with both donuts, Lists cards are clickable. On laptops the page now scrolls normally instead of squeezing every card into one screen and cutting them off.
+- **Our playlist** added to the music card and shown first; "⇄ Next" goes through your songs.
+- Calendar: the calendar comes first; "Add an event" sits under the selected day (date filled in automatically).
+- Special dates show the *next* date (e.g. 17 May 2027), not the original one.
+- Sports: entries no longer get squeezed on phones; the totals sit in two columns on phones.
+- Phone: short "Dates" label in the bottom bar, the active tab label no longer appears twice, Edit is a small ✎ in lists so rows stay on one line, filter buttons scroll sideways instead of wrapping.
+- Goals: removed the "Add a goal" suggestions (walk, sleep, fruit & veg); your own goals can still be added.
+- Fixed: the Phone calendar link was broken because the saved code contained the whole link.
+
 ## 1.3 – 10 Nov 2026
 - **Home weather redone:** big current weather for Prague (feels-like, high/low, rain chance, wind), an hourly strip for the next 10 hours, and **weather for each of today's plans** at its place and time (events without a place use Prague). Also tips like "Take an umbrella", Hradec Králové and your next trip.
 - **To-do grouped by person:** one coloured block each for you, Anna and Both, plus Everyone / Jirka / Anna filter buttons with open counts.

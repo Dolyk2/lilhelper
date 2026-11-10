@@ -2,7 +2,7 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
-const APP_VERSION = '1.3', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
+const APP_VERSION = '1.4', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
@@ -33,6 +33,8 @@ const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())
 const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const today0 = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
 const fmt = s => parse(s).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+/* shorter date: no year when it is this year */
+const fmtShort = s => { const d = parse(s); return d.toLocaleDateString(undefined, d.getFullYear() === new Date().getFullYear() ? { weekday: 'short', day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' }); };
 const owner = i => i == 2 ? 'Both' : S.names[i];
 const ownerOpts = (sel = 2) => [0, 1, 2].map(i => `<option value="${i}" ${i == sel ? 'selected' : ''}>${esc(owner(i))}</option>`).join('');
 /* Same day and month in a given year; 29 Feb becomes 28 Feb in non-leap years. */
@@ -57,7 +59,7 @@ const legend = () => `<p class="legend">${[0, 1, 2].map(i => `<span class="tag w
 const copyText = t => navigator.clipboard ? navigator.clipboard.writeText(t).then(() => toast('Copied'), () => toast('Could not copy. Select the text and copy it by hand.')) : toast('Copying is not supported here. Select the text and copy it by hand.');
 const spotifyId = u => (u || '').trim().match(/(?:open\.spotify\.com\/(?:intl-[a-z-]+\/)?|^spotify:)(track|album|playlist|artist|episode|show)[/:]([A-Za-z0-9]+)/);
 const overdue = x => !x.done && x.due && x.due < iso(new Date());
-const nextSong = () => { songId = null; render(); };
+const nextSong = () => { const i = S.songs.findIndex(x => x.id === songId); songId = S.songs[(i + 1) % S.songs.length]?.id ?? null; render(); };
 const hm = m => `${Math.floor(m / 60)}h ${m % 60}m`;
 function shufflePhoto() { homePhotoId = null; render(); }
 let editing = null; // id of the item currently being edited
@@ -69,14 +71,13 @@ const hid = id => `<input type="hidden" name="id" value="${id}">`;
 function home() {
   const t = iso(new Date()), t0 = today0();
   const byTime = (a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''));
-  const evRow = (e, label) => `<li data-w="${e.who}"><span class="grow">${esc(e.title)}${e.location ? ` <span class="muted">at ${esc(e.location)}</span>` : ''}</span>${label ? `<span class="tag teal">${label}</span>` : ''}<span class="muted">${esc(e.time || 'all day')}</span></li>`;
-  const label = k => { const n = Math.round((parse(k) - t0) / 864e5); return n === 1 ? 'Tomorrow' : parse(k).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }); };
-  const evs = S.events.filter(e => e.date === t).sort(byTime).slice(0, 4);
+  const when = k => { const n = Math.round((parse(k) - t0) / 864e5); return n === 1 ? 'Tomorrow' : n < 7 ? parse(k).toLocaleDateString(undefined, { weekday: 'long' }) : fmtShort(k); };
   const coming = S.events.filter(e => e.date > t).sort(byTime).slice(0, 5);
-  const open = S.tasks.filter(x => !x.done).sort((a, b) => (a.due || '9').localeCompare(b.due || '9')).slice(0, 5);
-  const ms = S.milestones.map(m => ({ ...m, n: daysTo(m) })).filter(m => m.n >= 0).sort((a, b) => a.n - b.n).slice(0, 3);
+  const open = S.tasks.filter(x => !x.done).sort((a, b) => (a.due || '9').localeCompare(b.due || '9')).slice(0, 6);
+  const ms = S.milestones.map(m => ({ ...m, n: daysTo(m) })).filter(m => m.n >= 0).sort((a, b) => a.n - b.n).slice(0, 4);
   const lst = S.lists.slice(0, 4).map(l => ({ name: l.name, owner: l.owner ?? 2, open: l.items.filter(i => !i.done) }));
-  if (!S.songs.find(s => s.id === songId)) songId = S.songs.length ? S.songs[Math.floor(Math.random() * S.songs.length)].id : null;
+  /* music: your pinned playlist first; Shuffle goes through the others */
+  if (!S.songs.find(s => s.id === songId)) songId = (S.songs.find(s => s.pin) || S.songs[0])?.id ?? null;
   const song = S.songs.find(s => s.id === songId);
   if (!S.photos.find(p => p.id === homePhotoId)) homePhotoId = S.photos.length ? S.photos[Math.floor(Math.random() * S.photos.length)].id : null;
   const hp = S.photos.find(p => p.id === homePhotoId);
@@ -84,37 +85,44 @@ function home() {
   const wkStart = iso(new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() - ((t0.getDay() + 6) % 7)));
   const tm = i => mon.filter(s => s.who == i || s.who == 2).reduce((a, s) => a + mins(s), 0);
   const kmTot = mon.reduce((a, s) => a + kms(s), 0), mx = Math.max(tm(0), tm(1), 1);
-  const longest = mon.reduce((a, s) => mins(s) > (a ? mins(a) : 0) ? s : a, null);
   const byT = {}; mon.forEach(s => byT[s.type] = (byT[s.type] || 0) + mins(s));
   const topT = Object.entries(byT).sort((a, b) => b[1] - a[1])[0];
   const head = (title, id) => `<div class="chead"><h3>${title}</h3><a href="#${id}">Open</a></div>`;
   const hello = (h => h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening')(new Date().getHours());
-  const player = !song ? `<p class="muted">Tap “+ Add” and paste a Spotify link to a song, album or playlist. A player shows up here.</p>`
-    : song.sid ? `<iframe class="spot" src="https://open.spotify.com/embed/${song.kind}/${song.sid}?theme=0" height="152" allow="encrypted-media; clipboard-write" loading="lazy" title="Spotify player"></iframe>`
+  const player = !song ? `<p class="muted">Tap “+ Add” and paste a Spotify link to a song, album or playlist.</p>`
+    : song.sid ? `<iframe class="spot" src="https://open.spotify.com/embed/${song.kind}/${song.sid}?theme=0" height="152" allow="encrypted-media; clipboard-write; autoplay" loading="lazy" title="Spotify player"></iframe>`
     : `<div class="songt">${esc(song.title)}</div><p class="muted">${esc(song.artist)}</p><a class="btn" href="https://open.spotify.com/search/${encodeURIComponent(song.title + ' ' + song.artist)}" target="_blank" rel="noopener">Find on Spotify</a>`;
-  return `<div class="homehead"><h2>${hello}, ${esc(S.names[0])} & ${esc(S.names[1])} <span class="muted">${fmt(t)}</span></h2>${legend()}</div>
+  const [next, ...more] = ms;
+  const msDate = m => fmtShort(iso(nextOcc(m)));
+  return `<div class="homehead"><h2>${hello}, ${esc(S.names[0])} & ${esc(S.names[1])}</h2><span class="muted hdate">${fmt(t)}</span></div>
   <div class="home">
     <section class="card span hero"><div class="herogrid">
-      <div><h3>Special dates</h3>${ms.length
-        ? `<div class="herorow">${ms.map((m, i) => `<div class="${i ? 'small' : ''}"><div class="big">${m.n === 0 ? 'Today' : m.n}</div><p>${m.n === 0 ? '' : m.n === 1 ? 'day until ' : 'days until '}${esc(m.title)}</p></div>`).join('')}</div>`
+      <div class="msbox"><h3>Special dates</h3>${next
+        ? `<div class="msnext"><div class="big">${next.n === 0 ? 'Today' : next.n}</div><div><p class="mst">${next.n === 0 ? '🎉 ' : next.n === 1 ? 'day until ' : 'days until '}<b>${esc(next.title)}</b></p><p class="msd">${msDate(next)}</p></div></div>
+          ${more.length ? `<ul class="mslist">${more.map(m => `<li><span class="grow">${esc(m.title)}</span><span class="msd">${msDate(m)}</span><b>${m.n === 0 ? 'today' : m.n + ' d'}</b></li>`).join('')}</ul>` : ''}
+          <a class="msall" href="#dates">All dates →</a>`
         : `<p class="muted">Add an anniversary or birthday under <a href="#dates">Special dates</a>.</p>`}</div>
       <div class="wxpanel" id="wxbox" aria-live="polite">${lastWx || '<h3>Weather</h3><p class="muted">Loading weather…</p>'}</div>
     </div></section>
-    <section class="card todaycard">${head('Today', 'calendar')}${evs.length ? `<ul class="items">${evs.map(e => evRow(e)).join('')}</ul>` : `<p class="muted">Nothing planned today.</p>`}</section>
-    <section class="card">${head('Coming up', 'calendar')}${coming.length ? `<ul class="items">${coming.map(e => evRow(e, label(e.date))).join('')}</ul>` : `<p class="muted">No upcoming events.</p>`}</section>
-    <section class="card">${head('To-dos', 'tasks')}${open.length ? `<ul class="items">${open.map(x => `<li data-w="${x.owner}"><span class="grow">${esc(x.text)}${x.due ? ` <span class="muted">${fmt(x.due)}</span>` : ''}</span>${overdue(x) ? '<span class="tag warn">overdue</span>' : ''}</li>`).join('')}</ul>` : `<p class="muted">All done.</p>`}</section>
+    <section class="card">${head('Coming up', 'calendar')}${coming.length ? `<ul class="items evlist">${coming.map(e => `<li data-w="${e.who}"><div class="grow"><div class="evt">${esc(e.title)}</div><div class="evm">${when(e.date)}${e.time ? ' · ' + esc(e.time) : ''}${e.location ? ' · ' + esc(e.location) : ''}</div></div></li>`).join('')}</ul>` : `<p class="muted">No upcoming events.</p>`}</section>
+    <section class="card">${head('To-dos', 'tasks')}${open.length ? `<ul class="items evlist">${open.map(x => `<li data-w="${x.owner}"><div class="grow"><div class="evt">${esc(x.text)}</div>${x.due ? `<div class="evm">due ${fmtShort(x.due)}</div>` : ''}</div>${overdue(x) ? '<span class="tag warn">overdue</span>' : ''}</li>`).join('')}</ul>` : `<p class="muted">All done.</p>`}</section>
     <section class="card memo">${hp && sb
-      ? `<button class="memophoto" onclick="openViewer('${hp.id}')" aria-label="Open photo"><img data-photo="${hp.path}" alt="Memory from ${fmt(hp.date)}"></button><div class="memocap"><span>${fmt(hp.date)}</span></div>`
+      ? `<button class="memophoto" onclick="openViewer('${hp.id}')" aria-label="Open photo"><img data-photo="${esc(hp.path)}" alt="Memory from ${fmt(hp.date)}"></button><div class="memocap"><span>${fmt(hp.date)}</span></div>`
       : `<div class="memoempty"><h3>Memory</h3><p class="muted">Add photos to a day in the Calendar. They show here and change every few seconds.</p></div>`}</section>
-    <section class="card music"><div class="chead"><h3>Our music</h3><span><button class="ghost" onclick="nextSong()">Shuffle</button><button class="ghost" onclick="songAdd=!songAdd;render()">${songAdd ? 'Close' : '+ Add'}</button></span></div>${player}
+    <section class="card music"><div class="chead"><h3>${song?.pin ? esc(song.title || 'Our playlist') : 'Our music'}</h3>${S.songs.length > 1 ? `<span class="muted">${S.songs.findIndex(x => x.id === songId) + 1} / ${S.songs.length}</span>` : ''}</div>${player}
+      <div class="mbtns">${S.songs.length > 1 ? '<button class="ghost" onclick="nextSong()" aria-label="Next song or playlist">⇄ Next</button>' : ''}<button class="ghost" onclick="songAdd=!songAdd;render()">${songAdd ? 'Close' : '+ Add music'}</button></div>
       ${songAdd ? `<form class="row" data-form="addSong" style="margin:.6rem 0 0"><input type="text" name="url" placeholder="Paste a Spotify link" required aria-label="Spotify link"><button class="primary">Add</button></form>` : ''}
-      ${song ? `<button class="ghost" data-act="delSong" data-id="${song.id}">Remove this one</button>` : ''}</section>
+      ${song && songAdd ? `<button class="ghost" data-act="delSong" data-id="${song.id}">Remove this one</button>` : ''}</section>
     <section class="card">${head('Sports this month', 'sports')}${mon.length
       ? `<div class="sportrow"><div class="big">${hm(tm(0) + tm(1))}</div><span class="muted">combined</span></div>
         ${[0, 1].map(i => `<div class="bar" data-w="${i}"><span>${esc(S.names[i])}</span><div><i style="width:${Math.round(tm(i) / mx * 100)}%"></i></div><b>${hm(tm(i))}</b></div>`).join('')}
-        <div class="chips"><span class="chip"><b>${mon.length}</b> activities</span><span class="chip"><b>${S.sports.filter(s => s.date >= wkStart).length}</b> this week</span><span class="chip"><b>${kmTot.toFixed(0)}</b> km</span>${topT ? `<span class="chip">top <b>${esc(topT[0])}</b></span>` : ''}${longest ? `<span class="chip">longest <b>${hm(longest.mins)}</b></span>` : ''}</div>`
+        <div class="chips"><span class="chip"><b>${mon.length}</b> activities</span><span class="chip"><b>${S.sports.filter(s => s.date >= wkStart).length}</b> this week</span>${kmTot ? `<span class="chip"><b>${kmTot.toFixed(0)}</b> km</span>` : ''}${topT ? `<span class="chip">top <b>${esc(topT[0])}</b></span>` : ''}</div>`
       : `<p class="muted">Nothing logged this month.</p>`}</section>
-    <section class="card span2">${head('Lists', 'lists')}<div class="listgrid">${lst.length ? lst.map(l => `<div class="mini" data-w="${l.owner}"><strong>${esc(l.name)}</strong> <span class="tag who">${l.open.length} open</span><div class="muted">${l.open.length ? esc(l.open.slice(0, 3).map(i => i.text).join(', ')) + (l.open.length > 3 ? '…' : '') : 'All done'}</div></div>`).join('') : `<p class="muted">No lists yet.</p>`}</div></section>
+    <section class="card">${head('Goals today', 'goals')}${S.goals.length
+      ? `<div class="hgoals">${[0, 1].map(w => `<a href="#goals" class="hgoal" data-w="${w}">${donut(dayScore(w, t), 92, 10, Math.round(dayScore(w, t) * 100) + '%')}<span>${esc(S.names[w])}</span></a>`).join('')}</div>
+        <p class="muted hgl">${S.goals.map(g => esc(g.icon)).join(' ')} ${S.goals.length} daily goals</p>`
+      : `<p class="muted">No goals yet.</p>`}</section>
+    <section class="card span2">${head('Lists', 'lists')}<div class="listgrid">${lst.length ? lst.map(l => `<a class="mini" href="#lists" data-w="${l.owner}"><strong>${esc(l.name)}</strong> <span class="tag who">${l.open.length || '✓'}</span><div class="muted">${l.open.length ? esc(l.open.slice(0, 3).map(i => i.text).join(', ')) + (l.open.length > 3 ? '…' : '') : 'All done'}</div></a>`).join('') : `<p class="muted">No lists yet.</p>`}</div></section>
   </div>`;
 }
 
@@ -144,17 +152,13 @@ function calendar() {
       <button class="primary" onclick="this.nextElementSibling.click()">Add photos</button><input type="file" accept="image/*" multiple hidden onchange="addPhotos(this)">`
     : '<p class="muted">Photos need the online mode (Supabase login).</p>'}</div>`;
   return `<h2>Calendar</h2>${legend()}
-  <form class="card row" data-form="addEvent"><h3 style="flex-basis:100%;margin:0">New event</h3>
-    <input type="text" name="title" placeholder="What's happening?" required aria-label="Event title">
-    <input type="date" name="date" value="${cal.sel}" required aria-label="Date">
-    <input type="time" name="time" aria-label="Time">
-    <input type="text" name="location" placeholder="Place (optional, for weather)" aria-label="Place">
-    <select name="who" aria-label="Who">${ownerOpts()}</select>
-    <button class="primary">Add event</button></form>
   <div class="calwrap"><div class="card"><div class="calhead"><button data-act="prev" aria-label="Previous month">‹</button><h3>${title}</h3><button data-act="next" aria-label="Next month">›</button></div><div class="cal">${cells}</div></div>
   <div class="daypanel"><div class="card"><h3>${fmt(cal.sel)}</h3>
     ${dayMs.length ? `<p>${dayMs.map(m => `<span class="tag">♥ ${esc(m.title)}</span>`).join(' ')}</p>` : ''}
-    <ul class="items">${evs.map(evLi).join('') || '<li class="muted">No events this day.</li>'}</ul></div>${memories}</div></div>`;
+    <ul class="items">${evs.map(evLi).join('') || '<li class="muted">No events this day.</li>'}</ul>
+    <form class="row addev" data-form="addEvent"><input type="text" name="title" placeholder="Add an event on this day…" required aria-label="Event title">
+      <input type="time" name="time" aria-label="Time"><input type="text" name="location" placeholder="Place (for weather)" aria-label="Place">
+      <select name="who" aria-label="Who">${ownerOpts()}</select><input type="hidden" name="date" value="${cal.sel}"><button class="primary">Add</button></form></div>${memories}</div></div>`;
 }
 
 function tasks() {
@@ -216,19 +220,20 @@ function dates() {
   const ms = S.milestones.map(m => ({ ...m, n: daysTo(m), y: m.repeat ? yearsAt(m) : 0 })).sort((a, b) => (a.n < 0) - (b.n < 0) || (a.n < 0 ? b.n - a.n : a.n - b.n));
   const li = m => editing === m.id
     ? `<li><form class="row editing" data-form="saveMs">${hid(m.id)}<input type="text" name="title" value="${esc(m.title)}" required aria-label="Title"><input type="date" name="date" value="${m.date}" required aria-label="Date"><label class="muted"><input type="checkbox" name="repeat" ${m.repeat ? 'checked' : ''}> every year</label>${formBtns}</form></li>`
-    : `<li class="${m.n < 0 ? 'past' : ''}"><span class="grow">${esc(m.title)} <span class="muted">· ${fmt(m.date)}${m.repeat ? ' · every year' : ''}${m.y > 0 ? ` · ${m.y} year${m.y > 1 ? 's' : ''}` : ''}</span></span><span class="tag ${m.n < 0 ? '' : 'teal'}">${daysLabel(m.n)}</span>${editBtn(m.id)}<button class="ghost" data-act="delMs" data-id="${m.id}" aria-label="Delete date">✕</button></li>`;
+    : `<li class="${m.n < 0 ? 'past' : ''}"><div class="grow"><div class="evt">${esc(m.title)}</div><div class="evm">${fmtShort(iso(nextOcc(m)))}${m.repeat ? ' · every year' : ''}${m.y > 0 ? ` · ${m.y} year${m.y > 1 ? 's' : ''}` : ''}</div></div><span class="tag ${m.n < 0 ? '' : 'teal'}">${daysLabel(m.n)}</span>${editBtn(m.id)}<button class="ghost" data-act="delMs" data-id="${m.id}" aria-label="Delete date">✕</button></li>`;
   return `<h2>Special dates</h2>
   <form class="row" data-form="addMs"><input type="text" name="title" placeholder="Anniversary, birthday, trip…" required aria-label="Title"><input type="date" name="date" required aria-label="Date">
     <label class="muted"><input type="checkbox" name="repeat" checked> every year</label><button class="primary">Add date</button></form>
   <div class="card"><ul class="items">${ms.map(li).join('') || '<li class="muted">No dates yet.</li>'}</ul></div>`;
 }
 
-const calLink = () => `${CFG.SUPABASE_URL}/functions/v1/calendar?token=${encodeURIComponent(S.calToken)}`;
+const calCode = v => { v = (v || '').trim(); const m = v.match(/[?&]token=([^&\s]+)/); return m ? decodeURIComponent(m[1]) : v; }; // accepts the code or a whole link
+const calLink = () => `${CFG.SUPABASE_URL}/functions/v1/calendar?token=${encodeURIComponent(calCode(S.calToken))}`;
 function settings() {
   return `<h2>Settings</h2>
   <form class="card" data-form="names"><h3>Names</h3><div class="row"><input type="text" name="a" value="${esc(S.names[0])}" aria-label="Your name"><input type="text" name="b" value="${esc(S.names[1])}" aria-label="Partner's name"><button class="primary">Save names</button></div></form>
   ${sb ? `<div class="card"><h3>Phone calendar</h3><p class="muted">Keep your secret code here instead of a note. Both of you can see it after logging in.</p>
-    <form class="row" data-form="saveToken"><input type="text" name="token" value="${esc(S.calToken || '')}" placeholder="Calendar code (CAL_TOKEN)" aria-label="Calendar code"><button class="primary">Save</button></form>
+    <form class="row" data-form="saveToken"><input type="text" name="token" value="${esc(calCode(S.calToken))}" placeholder="Calendar code (CAL_TOKEN)" aria-label="Calendar code"><button class="primary">Save</button></form>
     ${S.calToken ? `<p class="muted" style="word-break:break-all">${esc(calLink())}</p><button onclick="copyText(this.dataset.t)" data-t="${esc(calLink())}">Copy link</button> <button onclick="copyText(this.dataset.t)" data-t="${esc(calLink().replace('https://', 'webcal://'))}">Copy webcal link</button>` : ''}</div>` : ''}
   ${sb ? `<div class="card"><h3>Account</h3><p class="muted">You are logged in. Changes reach your partner within about 15 seconds.</p><p class="muted" role="status">${esc(syncInfo)}${dirty ? ' · some changes are not saved online yet' : ''}</p><button onclick="syncNow()">Sync now</button> <button data-act="logout">Log out</button></div>` : ''}
   ${notifyCard()}
@@ -245,7 +250,7 @@ const MODS = [
   { id: 'lists', title: 'Lists', render: lists },
   { id: 'goals', title: 'Goals', render: goals },
   { id: 'sports', title: 'Sports', render: sports },
-  { id: 'dates', title: 'Special dates', render: dates },
+  { id: 'dates', title: 'Special dates', short: 'Dates', render: dates },
   { id: 'settings', title: 'Settings', render: settings }
 ];
 
@@ -271,10 +276,9 @@ const A = {
   swho: id => { sportWho = id; },
   nwho: id => { noteWho = id; },
   twho: id => { taskWho = id; },
-  delSong: id => { S.songs = S.songs.filter(s => s.id !== id); songId = null; },
+  delSong: id => { const x = S.songs.find(s => s.id === id); if (x && confirm('Remove this from your music?')) { S.songs = S.songs.filter(s => s.id !== id); songId = null; } },
   delGoal: id => { const g = S.goals.find(x => x.id === id); if (g && confirm(`Delete "${g.name}" and its history?`)) S.goals = S.goals.filter(x => x.id !== id); },
   gstep: k => { const [id, w, dir] = k.split('|'), g = S.goals.find(x => x.id === id); if (!g) return; const t = iso(new Date()), L = (g.log[w] ||= {}); const v = Math.max(0, Math.round(((L[t] || 0) + (+dir) * g.step) * 100) / 100); if (v) L[t] = v; else delete L[t]; },
-  gpreset: key => { const p = GOAL_PRESETS.find(x => x.key === key); if (p && !S.goals.some(g => g.id === 'g-' + key)) S.goals.push(newGoal(p, 'g-' + key)); },
   grange: n => { goalDays = +n; },
   delSport: id => { S.sports = S.sports.filter(s => s.id !== id); },
   logout: () => { logout(); },
@@ -306,8 +310,8 @@ const F = {
   saveSport: d => Object.assign(S.sports.find(x => x.id === d.id), sportData(d)),
   addGoal: d => S.goals.push(newGoal({ name: d.name.trim(), icon: (d.icon || '').trim() || '⭐', unit: d.unit.trim(), target: +d.target, step: +d.step || 1, owner: +d.owner }, uid())),
   saveGoal: d => Object.assign(S.goals.find(x => x.id === d.id), { name: d.name.trim(), icon: (d.icon || '').trim() || '⭐', unit: d.unit.trim(), target: Math.max(+d.target || 1, 0.01), step: +d.step || 1, owner: +d.owner }),
-  addSong: d => { const m = spotifyId(d.url); if (!m) { toast('That does not look like a Spotify link.'); return; } S.songs.push({ id: uid(), kind: m[1], sid: m[2] }); songAdd = false; songId = null; },
-  saveToken: d => { S.calToken = d.token.trim(); },
+  addSong: d => { const m = spotifyId(d.url); if (!m) { toast('That does not look like a Spotify link.'); return; } const id = uid(); S.songs.push({ id, kind: m[1], sid: m[2] }); songAdd = false; songId = id; },
+  saveToken: d => { S.calToken = calCode(d.token); },
   names: d => { S.names = [d.a.trim() || 'Me', d.b.trim() || 'Her']; }
 };
 
@@ -655,7 +659,11 @@ async function buildWeather() {
       ${tips.length ? `<div class="wxtips">${tips.map(x => `<span>${x}</span>`).join('')}</div>` : ''}
       <div class="wxfoot">${others.filter(Boolean).map(o => `<span>${esc(o.n)} ${wxIcon(o.c.weather_code, o.c.is_day)} <b>${deg(o.c.temperature_2m)}</b></span>`).join('')}${trip && tw ? `<span>${esc(trip.location)}, ${parse(trip.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} ${wxIcon(tw.code)} <b>${tw.temp}</b></span>` : ''}</div>`;
     const cur = view.querySelector('#wxbox'); if (cur) cur.innerHTML = lastWx;
-  } catch { if (!lastWx) box.innerHTML = '<h3>Weather</h3><p class="muted">Weather is not available right now.</p>'; }
+  } catch {
+    if (lastWx) return;
+    const plans = S.events.filter(e => e.date === t).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    box.innerHTML = `<h3>Weather</h3><p class="wxnone">Weather is not available right now.</p>${plans.length ? `<div class="wxsub"><h4>Today's plans</h4><div class="wxplans">${plans.map(e => `<div class="wxplan" data-w="${e.who}"><span class="wxpt">${esc(e.time || 'all day')}</span><span class="grow">${esc(e.title)}</span></div>`).join('')}</div></div>` : ''}`;
+  }
 }
 const fillWeather = buildWeather;
 async function geocodeEvent(e) {
@@ -682,10 +690,7 @@ async function rotatePhoto() {
 const GOAL_PRESETS = [
   { key: 'water', name: 'Drink water', icon: '💧', unit: 'L', target: 2, step: 0.25 },
   { key: 'stretch', name: 'Stretching', icon: '🧘', unit: 'min', target: 15, step: 5 },
-  { key: 'read', name: 'Read a book', icon: '📖', unit: 'pages', target: 20, step: 5 },
-  { key: 'walk', name: 'Walk', icon: '🚶', unit: 'steps', target: 8000, step: 1000 },
-  { key: 'sleep', name: 'Sleep', icon: '😴', unit: 'hours', target: 8, step: 0.5 },
-  { key: 'veg', name: 'Fruit & veg', icon: '🍎', unit: 'portions', target: 5, step: 1 }
+  { key: 'read', name: 'Read a book', icon: '📖', unit: 'pages', target: 20, step: 5 }
 ];
 const newGoal = (p, id) => ({ id, name: p.name, icon: p.icon, unit: p.unit, target: p.target, step: p.step, owner: p.owner ?? 2, log: { 0: {}, 1: {} } });
 const isNewGoal = g => isObj(g) && isObj(g.log) && typeof g.target === 'number';
@@ -740,13 +745,11 @@ function goals() {
         <div class="gname">${esc(S.names[w])}${st >= 2 ? ` <span title="days in a row">🔥${st}</span>` : ''}</div>
         <div class="gbtns"><button data-act="gstep" data-id="${g.id}|${w}|-1" aria-label="Less for ${esc(S.names[w])}">−</button><button class="primary" data-act="gstep" data-id="${g.id}|${w}|1" aria-label="Add ${nfmt(g.step)} ${esc(g.unit)} for ${esc(S.names[w])}">+${nfmt(g.step)}</button></div></div>`; }).join('')}</div>
       ${goalChart(g)}</div>`;
-  const left = GOAL_PRESETS.filter(p => !S.goals.some(g => g.id === 'g-' + p.key));
   return `<h2>Daily goals</h2>${legend()}
   <div class="gsums">${summary}</div>
   <div class="chead" style="margin:1.2rem 0 .6rem;flex-wrap:wrap"><h3>Your goals today</h3><div class="tabs" style="margin:0;align-items:center"><span class="muted">History:</span>${[7, 14, 30].map(n => `<button class="${goalDays === n ? 'on' : ''}" data-act="grange" data-id="${n}">${n} days</button>`).join('')}</div></div>
   <div class="goalgrid">${S.goals.map(card).join('') || '<div class="card"><p class="muted">No goals yet. Add one below.</p></div>'}</div>
-  ${left.length ? `<div class="card"><h3>Add a goal</h3><div class="ideas">${left.map(p => `<button class="idea" data-act="gpreset" data-id="${p.key}"><span class="ic">${p.icon}</span><span>${esc(p.name)}<small class="muted"> ${nfmt(p.target)} ${esc(p.unit)}</small></span></button>`).join('')}</div></div>` : ''}
-  <form class="card gform" data-form="addGoal"><h3>Your own goal</h3>${goalFields({ icon: '⭐', owner: 2, step: 1 })}<p><button class="primary">Add goal</button></p></form>`;
+  <form class="card gform" data-form="addGoal"><h3>Add a goal</h3>${goalFields({ icon: '⭐', owner: 2, step: 1 })}<p><button class="primary">Add goal</button></p></form>`;
 }
 const goalFields = g => `<div class="row" style="display:flex;flex-wrap:wrap;gap:.55rem">
   <input type="text" name="icon" value="${esc(g.icon || '')}" maxlength="4" aria-label="Icon (emoji)" style="flex:0 0 4rem;text-align:center">
@@ -786,10 +789,9 @@ function sports() {
     <input type="text" name="note" placeholder="Note (how it felt, where…)" value="${esc(s.note || '')}" aria-label="Note" style="flex-basis:100%">`;
   const row = s => editing === s.id
     ? `<li><form class="row editing" data-form="saveSport">${hid(s.id)}${fields(s)}${formBtns}</form></li>`
-    : `<li data-w="${s.who}"><span class="tag teal">${esc(s.type)}</span><div class="grow"><strong>${parse(s.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</strong>
-      <span class="muted">${[s.mins && s.mins + ' min', s.km && s.km + ' km'].filter(Boolean).join(', ')}</span>
-      ${s.exercises ? `<div>${esc(s.exercises)}</div>` : ''}${s.note ? `<div class="muted">${esc(s.note)}</div>` : ''}</div>
-      <span class="tag who">${esc(owner(s.who))}</span>${editBtn(s.id)}<button class="ghost" data-act="delSport" data-id="${s.id}" aria-label="Delete activity">✕</button></li>`;
+    : `<li data-w="${s.who}" class="sport"><div class="grow"><div class="sline"><span class="tag teal">${esc(s.type)}</span><strong>${fmtShort(s.date)}</strong><span class="muted">${[mins(s) && hm(mins(s)), kms(s) && kms(s) + ' km'].filter(Boolean).join(' · ')}</span><span class="tag who">${esc(owner(s.who))}</span></div>
+      ${s.exercises ? `<div class="sdesc">${esc(s.exercises)}</div>` : ''}${s.note ? `<div class="muted sdesc">${esc(s.note)}</div>` : ''}</div>
+      ${editBtn(s.id)}<button class="ghost" data-act="delSport" data-id="${s.id}" aria-label="Delete activity">✕</button></li>`;
   return `<h2>Sports</h2>
   <div class="tabs">${[['week', 'This week'], ['month', 'This month'], ['all', 'All time']].map(([id, t]) => tab('srange', id, sportRange === id, t)).join('')}</div>
   <div class="grid" style="margin-bottom:1rem">
@@ -814,7 +816,7 @@ function render() {
   if (!authed) { nav.innerHTML = ''; view.innerHTML = loginView(); return; }
   if (migrateGoals()) save();
   const m = MODS.find(m => m.id === location.hash.slice(1)) || MODS[0];
-  nav.innerHTML = MODS.map(x => `<a href="#${x.id}" class="${x.id === m.id ? 'on' : ''}" aria-label="${x.title}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[x.id] || ''}</svg><span>${x.title}</span></a>`).join('');
+  nav.innerHTML = MODS.map(x => `<a href="#${x.id}" class="${x.id === m.id ? 'on' : ''}" aria-label="${x.title}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[x.id] || ''}</svg><span class="nl">${x.title}</span><span class="ns">${x.short || x.title}</span></a>`).join('');
   document.getElementById('brand').textContent = S.names.join(' + ');
   const y = m.id === lastPage ? view.scrollTop : 0; // keep position on the same page, start at the top on a new one
   if (m.id !== lastPage) editing = null;
