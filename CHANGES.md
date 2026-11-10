@@ -2,6 +2,11 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.5 – 10 Nov 2026
+- **Tapping a notification opens the new item:** the app goes straight to the right page (the right day in the calendar, the right list, filters reset) and the new item glows for a few seconds. Works whether the app was closed or already open. If the item was deleted in the meantime, you get a short message instead.
+- Several new things now show as separate notifications instead of replacing each other.
+- Phones: the selected tab (e.g. a list) scrolls into view in the sideways tab row.
+
 ## 1.4 – 10 Nov 2026
 - **Whole app checked and tidied on computer, laptop, tablet and phone.**
 - Home: cleaner special dates (next one big, the following three as a list with dates), the "Today" card is gone (today's plans are in the weather panel), event and to-do rows show the title with time/place underneath instead of squashing, new **Goals today** card with both donuts, Lists cards are clickable. On laptops the page now scrolls normally instead of squeezing every card into one screen and cutting them off.

@@ -14,11 +14,13 @@ self.addEventListener('push', e => {
   }));
 });
 
+/* Tapping a notification opens the app on the new item (the link looks like ./#tasks/abc123). */
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const url = new URL(e.notification.data?.url || './', self.registration.scope).href;
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-    for (const c of list) if (c.url.startsWith(self.registration.scope)) { c.navigate(url); return c.focus(); }
-    return self.clients.openWindow(url);
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async list => {
+    const c = list.find(w => w.url.startsWith(self.registration.scope));
+    if (c) { await c.focus(); c.postMessage({ type: 'open', url }); return; } // app already open: let it jump there
+    return self.clients.openWindow(url); // app closed: open it straight on that item
   }));
 });

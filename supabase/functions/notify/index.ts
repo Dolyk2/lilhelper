@@ -22,7 +22,9 @@ Deno.serve(async (req) => {
   const { data: who } = await asUser.auth.getUser();
   if (!who?.user) return json({ error: 'not logged in' }, 401);
 
-  const { by, items = [], test = false, endpoint } = await req.json().catch(() => ({}));
+  const { by, items = [], test = false, endpoint, link } = await req.json().catch(() => ({}));
+  // Where tapping the notification should take you, e.g. "#tasks/abc123" (only simple app links are allowed).
+  const openUrl = typeof link === 'string' && /^#[a-z]+(\/[A-Za-z0-9_-]{1,40}){0,2}$/.test(link) ? './' + link : './';
   const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
   // Names come from the shared data, so the notification says "Anna added…"
@@ -48,7 +50,8 @@ Deno.serve(async (req) => {
     : {
         title: by === 0 || by === 1 ? `${author} added to ${first.where}` : `New in ${first.where}`,
         body: items.length === 1 ? String(first.what ?? '') : `${first.what} and ${items.length - 1} more`,
-        tag: 'us-update',
+        tag: 'us-' + openUrl, // one notification per item, so several new things don't replace each other
+        url: openUrl,
       };
 
   const pub = Deno.env.get('VAPID_PUBLIC_KEY'), priv = Deno.env.get('VAPID_PRIVATE_KEY');

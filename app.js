@@ -2,7 +2,7 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
-const APP_VERSION = '1.4', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
+const APP_VERSION = '1.5', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
@@ -109,7 +109,7 @@ function home() {
     <section class="card memo">${hp && sb
       ? `<button class="memophoto" onclick="openViewer('${hp.id}')" aria-label="Open photo"><img data-photo="${esc(hp.path)}" alt="Memory from ${fmt(hp.date)}"></button><div class="memocap"><span>${fmt(hp.date)}</span></div>`
       : `<div class="memoempty"><h3>Memory</h3><p class="muted">Add photos to a day in the Calendar. They show here and change every few seconds.</p></div>`}</section>
-    <section class="card music"><div class="chead"><h3>${song?.pin ? esc(song.title || 'Our playlist') : 'Our music'}</h3>${S.songs.length > 1 ? `<span class="muted">${S.songs.findIndex(x => x.id === songId) + 1} / ${S.songs.length}</span>` : ''}</div>${player}
+    <section class="card music" data-hl="${song?.id || ''}"><div class="chead"><h3>${song?.pin ? esc(song.title || 'Our playlist') : 'Our music'}</h3>${S.songs.length > 1 ? `<span class="muted">${S.songs.findIndex(x => x.id === songId) + 1} / ${S.songs.length}</span>` : ''}</div>${player}
       <div class="mbtns">${S.songs.length > 1 ? '<button class="ghost" onclick="nextSong()" aria-label="Next song or playlist">⇄ Next</button>' : ''}<button class="ghost" onclick="songAdd=!songAdd;render()">${songAdd ? 'Close' : '+ Add music'}</button></div>
       ${songAdd ? `<form class="row" data-form="addSong" style="margin:.6rem 0 0"><input type="text" name="url" placeholder="Paste a Spotify link" required aria-label="Spotify link"><button class="primary">Add</button></form>` : ''}
       ${song && songAdd ? `<button class="ghost" data-act="delSong" data-id="${song.id}">Remove this one</button>` : ''}</section>
@@ -144,11 +144,11 @@ function calendar() {
   const title = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const evLi = e => editing === e.id
     ? `<li><form class="row editing" data-form="saveEvent">${hid(e.id)}<input type="text" name="title" value="${esc(e.title)}" required aria-label="Event title"><input type="date" name="date" value="${e.date}" required aria-label="Date"><input type="time" name="time" value="${esc(e.time || '')}" aria-label="Time"><input type="text" name="location" value="${esc(e.location || '')}" placeholder="Place" aria-label="Place"><select name="who" aria-label="Who">${ownerOpts(e.who)}</select>${formBtns}</form></li>`
-    : `<li data-w="${e.who}"><span class="grow">${esc(e.title)}${e.location ? ` <span class="muted">at ${esc(e.location)}</span>` : ''}</span><span class="muted">${esc(e.time || 'all day')}</span><span class="tag who">${esc(owner(e.who))}</span>${editBtn(e.id)}<button class="ghost" data-act="delEvent" data-id="${e.id}" aria-label="Delete event">✕</button></li>`;
+    : `<li data-w="${e.who}" data-hl="${e.id}"><span class="grow">${esc(e.title)}${e.location ? ` <span class="muted">at ${esc(e.location)}</span>` : ''}</span><span class="muted">${esc(e.time || 'all day')}</span><span class="tag who">${esc(owner(e.who))}</span>${editBtn(e.id)}<button class="ghost" data-act="delEvent" data-id="${e.id}" aria-label="Delete event">✕</button></li>`;
   const ph = S.photos.filter(p => p.date === cal.sel).sort((a, b) => a.at - b.at);
   const dayMs = S.milestones.filter(m => onDay(m, cal.sel));
   const memories = `<div class="card"><h3>Memories</h3>${sb
-    ? `<div class="thumbs">${ph.map(p => `<button class="thumb" onclick="openViewer('${p.id}')" aria-label="Open photo"><img data-photo="${p.thumb}" alt="Memory from ${fmt(cal.sel)}"></button>`).join('')}</div>
+    ? `<div class="thumbs">${ph.map(p => `<button class="thumb" data-hl="${p.id}" onclick="openViewer('${p.id}')" aria-label="Open photo"><img data-photo="${p.thumb}" alt="Memory from ${fmt(cal.sel)}"></button>`).join('')}</div>
       <button class="primary" onclick="this.nextElementSibling.click()">Add photos</button><input type="file" accept="image/*" multiple hidden onchange="addPhotos(this)">`
     : '<p class="muted">Photos need the online mode (Supabase login).</p>'}</div>`;
   return `<h2>Calendar</h2>${legend()}
@@ -164,7 +164,7 @@ function calendar() {
 function tasks() {
   const li = x => editing === x.id
     ? `<li><form class="row editing" data-form="saveTask">${hid(x.id)}<input type="text" name="text" value="${esc(x.text)}" required aria-label="To-do"><select name="owner" aria-label="Who">${ownerOpts(x.owner)}</select><input type="date" name="due" value="${x.due || ''}" aria-label="Due date">${formBtns}</form></li>`
-    : `<li data-w="${x.owner}" class="${x.done ? 'done' : ''}"><input type="checkbox" ${x.done ? 'checked' : ''} data-act="toggleTask" data-id="${x.id}" aria-label="Done">
+    : `<li data-w="${x.owner}" data-hl="${x.id}" class="${x.done ? 'done' : ''}"><input type="checkbox" ${x.done ? 'checked' : ''} data-act="toggleTask" data-id="${x.id}" aria-label="Done">
     <span class="grow">${esc(x.text)} ${x.due ? `<span class="muted">due ${fmt(x.due)}</span>` : ''}</span>${overdue(x) ? '<span class="tag warn">overdue</span>' : ''}${editBtn(x.id)}<button class="ghost" data-act="delTask" data-id="${x.id}" aria-label="Delete to-do">✕</button></li>`;
   const byDue = (a, b) => (a.done - b.done) || (a.due || '9').localeCompare(b.due || '9');
   /* one coloured group per person; a person's filter also shows the shared ("Both") to-dos */
@@ -189,7 +189,7 @@ function notes() {
   const sorted = [...S.notes].filter(n => noteWho === 'all' || own(n) == noteWho || own(n) == 2).sort((a, b) => (b.pin - a.pin) || b.at - a.at);
   const card = n => editing === n.id
     ? `<form class="card editing" data-form="saveNote">${hid(n.id)}<div class="row" style="display:flex;gap:.55rem;margin-bottom:.5rem"><input type="text" name="title" value="${esc(n.title)}" placeholder="Title (optional)" aria-label="Title"><select name="owner" aria-label="Whose note">${ownerOpts(own(n))}</select></div><textarea name="body" required aria-label="Note">${esc(n.body)}</textarea><p>${formBtns}</p></form>`
-    : `<article class="card note ${n.pin ? 'pin' : ''}" data-w="${own(n)}"><div class="chead"><h3>${n.pin ? '📌 ' : ''}${esc(n.title || 'Untitled')}</h3><span class="tag who">${esc(owner(own(n)))}</span></div><div>${esc(n.body)}</div>
+    : `<article class="card note ${n.pin ? 'pin' : ''}" data-w="${own(n)}" data-hl="${n.id}"><div class="chead"><h3>${n.pin ? '📌 ' : ''}${esc(n.title || 'Untitled')}</h3><span class="tag who">${esc(owner(own(n)))}</span></div><div>${esc(n.body)}</div>
     <p class="muted">${new Date(n.at).toLocaleDateString()} ${editBtn(n.id)}<button class="ghost" data-act="pinNote" data-id="${n.id}">${n.pin ? 'Unpin' : 'Pin'}</button><button class="ghost" data-act="delNote" data-id="${n.id}">Delete</button></p></article>`;
   const tab = (id, txt) => `<button class="${noteWho === id ? 'on' : ''}" data-act="nwho" data-id="${id}">${txt}</button>`;
   return `<h2>Notes</h2>
@@ -204,7 +204,7 @@ function lists() {
   const cur = S.lists.find(l => l.id === listTab);
   const item = i => editing === i.id
     ? `<li><form class="row editing" data-form="saveItem">${hid(i.id)}<input type="text" name="text" value="${esc(i.text)}" required aria-label="Item">${formBtns}</form></li>`
-    : `<li class="${i.done ? 'done' : ''}"><input type="checkbox" ${i.done ? 'checked' : ''} data-act="toggleItem" data-id="${i.id}" aria-label="Done"><span class="grow">${esc(i.text)}</span>${editBtn(i.id)}<button class="ghost" data-act="delItem" data-id="${i.id}" aria-label="Delete item">✕</button></li>`;
+    : `<li data-hl="${i.id}" class="${i.done ? 'done' : ''}"><input type="checkbox" ${i.done ? 'checked' : ''} data-act="toggleItem" data-id="${i.id}" aria-label="Done"><span class="grow">${esc(i.text)}</span>${editBtn(i.id)}<button class="ghost" data-act="delItem" data-id="${i.id}" aria-label="Delete item">✕</button></li>`;
   const foot = cur && (editing === cur.id
     ? `<form class="row editing" data-form="saveList">${hid(cur.id)}<input type="text" name="name" value="${esc(cur.name)}" required aria-label="List name"><select name="owner" aria-label="Whose list">${ownerOpts(cur.owner ?? 2)}</select>${formBtns}</form>`
     : `<p>${editBtn(cur.id).replace('>Edit<', '>Rename list<')}<button class="ghost" data-act="delList" data-id="${cur.id}">Delete this list</button></p>`);
@@ -220,7 +220,7 @@ function dates() {
   const ms = S.milestones.map(m => ({ ...m, n: daysTo(m), y: m.repeat ? yearsAt(m) : 0 })).sort((a, b) => (a.n < 0) - (b.n < 0) || (a.n < 0 ? b.n - a.n : a.n - b.n));
   const li = m => editing === m.id
     ? `<li><form class="row editing" data-form="saveMs">${hid(m.id)}<input type="text" name="title" value="${esc(m.title)}" required aria-label="Title"><input type="date" name="date" value="${m.date}" required aria-label="Date"><label class="muted"><input type="checkbox" name="repeat" ${m.repeat ? 'checked' : ''}> every year</label>${formBtns}</form></li>`
-    : `<li class="${m.n < 0 ? 'past' : ''}"><div class="grow"><div class="evt">${esc(m.title)}</div><div class="evm">${fmtShort(iso(nextOcc(m)))}${m.repeat ? ' · every year' : ''}${m.y > 0 ? ` · ${m.y} year${m.y > 1 ? 's' : ''}` : ''}</div></div><span class="tag ${m.n < 0 ? '' : 'teal'}">${daysLabel(m.n)}</span>${editBtn(m.id)}<button class="ghost" data-act="delMs" data-id="${m.id}" aria-label="Delete date">✕</button></li>`;
+    : `<li data-hl="${m.id}" class="${m.n < 0 ? 'past' : ''}"><div class="grow"><div class="evt">${esc(m.title)}</div><div class="evm">${fmtShort(iso(nextOcc(m)))}${m.repeat ? ' · every year' : ''}${m.y > 0 ? ` · ${m.y} year${m.y > 1 ? 's' : ''}` : ''}</div></div><span class="tag ${m.n < 0 ? '' : 'teal'}">${daysLabel(m.n)}</span>${editBtn(m.id)}<button class="ghost" data-act="delMs" data-id="${m.id}" aria-label="Delete date">✕</button></li>`;
   return `<h2>Special dates</h2>
   <form class="row" data-form="addMs"><input type="text" name="title" placeholder="Anniversary, birthday, trip…" required aria-label="Title"><input type="date" name="date" required aria-label="Date">
     <label class="muted"><input type="checkbox" name="repeat" checked> every year</label><button class="primary">Add date</button></form>
@@ -573,23 +573,23 @@ async function notifyTest() {
   catch (e) { toast('Test failed: ' + (e.message || e) + '. Is the "notify" function set up in Supabase?'); }
 }
 /* What did this device add compared with the server copy? Used to tell the partner. */
-const KINDS = [['events', 'Calendar', x => x.title], ['tasks', 'To-do', x => x.text], ['notes', 'Notes', x => x.title || x.body], ['milestones', 'Special dates', x => x.title],
-  ['sports', 'Sports', x => x.type], ['goals', 'Goals', x => x.name || x.text], ['songs', 'Music', () => 'a song'], ['photos', 'Memories', () => 'a photo']];
+const KINDS = [['events', 'Calendar', x => x.title, 'calendar'], ['tasks', 'To-do', x => x.text, 'tasks'], ['notes', 'Notes', x => x.title || x.body, 'notes'], ['milestones', 'Special dates', x => x.title, 'dates'],
+  ['sports', 'Sports', x => x.type, 'sports'], ['goals', 'Goals', x => x.name || x.text, 'goals'], ['songs', 'Music', () => 'a song', 'home'], ['photos', 'Memories', () => 'a photo', 'calendar']];
 function addedItems(before, after) {
   const out = [], ids = a => new Set((Array.isArray(a) ? a : []).map(x => x.id));
-  for (const [k, label, txt] of KINDS) { const old = ids(before?.[k]); (after[k] || []).filter(x => !old.has(x.id)).forEach(x => out.push({ where: label, what: String(txt(x) || '').slice(0, 80) })); }
+  for (const [k, label, txt, page] of KINDS) { const old = ids(before?.[k]); (after[k] || []).filter(x => !old.has(x.id)).forEach(x => out.push({ where: label, what: String(txt(x) || '').slice(0, 80), link: `#${page}/${x.id}` })); }
   const oldLists = new Map((before?.lists || []).map(l => [l.id, ids(l.items)]));
   for (const l of after.lists || []) {
     const old = oldLists.get(l.id);
-    if (!old) out.push({ where: 'Lists', what: `new list "${l.name}"` });
-    (l.items || []).filter(i => old && !old.has(i.id)).forEach(i => out.push({ where: l.name, what: i.text }));
+    if (!old) out.push({ where: 'Lists', what: `new list "${l.name}"`, link: `#lists/${l.id}` });
+    (l.items || []).filter(i => old && !old.has(i.id)).forEach(i => out.push({ where: l.name, what: i.text, link: `#lists/${l.id}/${i.id}` }));
   }
   return out;
 }
 function tellPartner(before, after) {
   if (!pushReady() || !before || !Object.keys(before).length) return;
   const items = addedItems(before, after);
-  if (items.length) callNotify({ by: me(), items: items.slice(0, 10), endpoint: pushSub?.endpoint }).catch(() => { /* function not set up: no notification */ });
+  if (items.length) callNotify({ by: me(), items: items.slice(0, 10), link: items[0].link, endpoint: pushSub?.endpoint }).catch(() => { /* function not set up: no notification */ });
 }
 const whoOpts = () => [0, 1].map(i => `<option value="${i}" ${me() === i ? 'selected' : ''}>${esc(S.names[i])}</option>`).join('');
 function notifyCard() {
@@ -739,7 +739,7 @@ function goals() {
   }).join('');
   const card = g => editing === g.id
     ? `<form class="card editing gform" data-form="saveGoal">${hid(g.id)}${goalFields(g)}<p>${formBtns}</p></form>`
-    : `<div class="card goal"><div class="chead"><h3><span class="gicon">${esc(g.icon)}</span>${esc(g.name)}</h3><span>${editBtn(g.id)}<button class="ghost" data-act="delGoal" data-id="${g.id}" aria-label="Delete goal">✕</button></span></div>
+    : `<div class="card goal" data-hl="${g.id}"><div class="chead"><h3><span class="gicon">${esc(g.icon)}</span>${esc(g.name)}</h3><span>${editBtn(g.id)}<button class="ghost" data-act="delGoal" data-id="${g.id}" aria-label="Delete goal">✕</button></span></div>
       <p class="muted gtgt">Goal: ${nfmt(g.target)} ${esc(g.unit)} a day</p>
       <div class="gpeople">${people(g).map(w => { const v = amt(g, w, t), st = streakOf(g, w); return `<div class="gperson" data-w="${w}">${donut(v / g.target, 96, 10, nfmt(v), '/ ' + nfmt(g.target) + ' ' + g.unit)}
         <div class="gname">${esc(S.names[w])}${st >= 2 ? ` <span title="days in a row">🔥${st}</span>` : ''}</div>
@@ -789,7 +789,7 @@ function sports() {
     <input type="text" name="note" placeholder="Note (how it felt, where…)" value="${esc(s.note || '')}" aria-label="Note" style="flex-basis:100%">`;
   const row = s => editing === s.id
     ? `<li><form class="row editing" data-form="saveSport">${hid(s.id)}${fields(s)}${formBtns}</form></li>`
-    : `<li data-w="${s.who}" class="sport"><div class="grow"><div class="sline"><span class="tag teal">${esc(s.type)}</span><strong>${fmtShort(s.date)}</strong><span class="muted">${[mins(s) && hm(mins(s)), kms(s) && kms(s) + ' km'].filter(Boolean).join(' · ')}</span><span class="tag who">${esc(owner(s.who))}</span></div>
+    : `<li data-w="${s.who}" data-hl="${s.id}" class="sport"><div class="grow"><div class="sline"><span class="tag teal">${esc(s.type)}</span><strong>${fmtShort(s.date)}</strong><span class="muted">${[mins(s) && hm(mins(s)), kms(s) && kms(s) + ' km'].filter(Boolean).join(' · ')}</span><span class="tag who">${esc(owner(s.who))}</span></div>
       ${s.exercises ? `<div class="sdesc">${esc(s.exercises)}</div>` : ''}${s.note ? `<div class="muted sdesc">${esc(s.note)}</div>` : ''}</div>
       ${editBtn(s.id)}<button class="ghost" data-act="delSport" data-id="${s.id}" aria-label="Delete activity">✕</button></li>`;
   return `<h2>Sports</h2>
@@ -811,11 +811,44 @@ function sports() {
 /* ---------- shell ---------- */
 const view = document.getElementById('view'), nav = document.getElementById('nav');
 let lastPage = null;
+/* Before showing a page from a link: make sure the item is visible (right day, right list, no filter). */
+function focusPrep(page, a, b) {
+  if (page === 'calendar') { const x = S.events.find(e => e.id === a) || S.photos.find(p => p.id === a); if (x) goTo(x.date); }
+  if (page === 'lists' && S.lists.some(l => l.id === a)) { listTab = a; return b || null; }
+  if (page === 'tasks') taskWho = 'all';
+  if (page === 'notes') noteWho = 'all';
+  if (page === 'sports') { sportRange = 'all'; sportWho = 'all'; }
+  if (page === 'home' && S.songs.some(x => x.id === a)) songId = a;
+  editing = null;
+  return a;
+}
+let flash = null; // { id, until }: kept for a few seconds so a redraw right after opening doesn't lose the highlight
+function focusShow(id) {
+  const el = view.querySelector(`[data-hl="${CSS.escape(id)}"]`);
+  if (!el) { toast('That item was changed or removed.'); return; }
+  flash = { id, until: Date.now() + 3000 };
+  setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+  el.classList.add('flash');
+}
+function reflash() {
+  if (!flash || Date.now() > flash.until) { flash = null; return; }
+  const el = view.querySelector(`[data-hl="${CSS.escape(flash.id)}"]`);
+  if (el) { el.classList.add('flash'); el.style.animationDelay = `-${3000 - (flash.until - Date.now())}ms`; requestAnimationFrame(() => el.scrollIntoView({ block: 'center' })); }
+}
+/* A tapped notification while the app is already open: fetch the news, then jump to the item. */
+navigator.serviceWorker?.addEventListener('message', async e => {
+  if (e.data?.type !== 'open') return;
+  const h = new URL(e.data.url, location.href).hash; if (!h) return;
+  if (authed && sb) await pull();
+  if (location.hash === h) render(); else location.hash = h;
+});
 function render() {
   document.body.classList.toggle('locked', !authed);
   if (!authed) { nav.innerHTML = ''; view.innerHTML = loginView(); return; }
   if (migrateGoals()) save();
-  const m = MODS.find(m => m.id === location.hash.slice(1)) || MODS[0];
+  const [page, a, b] = location.hash.slice(1).split('/');
+  const m = MODS.find(m => m.id === page) || MODS[0];
+  const hl = a ? focusPrep(m.id, a, b) : null;
   nav.innerHTML = MODS.map(x => `<a href="#${x.id}" class="${x.id === m.id ? 'on' : ''}" aria-label="${x.title}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[x.id] || ''}</svg><span class="nl">${x.title}</span><span class="ns">${x.short || x.title}</span></a>`).join('');
   document.getElementById('brand').textContent = S.names.join(' + ');
   const y = m.id === lastPage ? view.scrollTop : 0; // keep position on the same page, start at the top on a new one
@@ -826,6 +859,9 @@ function render() {
   view.scrollTop = y;
   document.title = m.id === 'home' ? 'Us – our little helper' : `${m.title} · Us`;
   if (editing) view.querySelector('.editing input[type=text], .editing textarea')?.focus();
+  if (a) { history.replaceState(null, '', '#' + m.id); if (hl) focusShow(hl); } // the link did its job; keep the address tidy
+  else reflash();
+  view.querySelectorAll('.tabs').forEach(t => { const on = t.querySelector('button.on'); if (on && t.scrollWidth > t.clientWidth) t.scrollLeft = on.offsetLeft - t.offsetLeft - (t.clientWidth - on.offsetWidth) / 2; }); // keep the selected tab visible on phones
   hydrate(); fillWeather();
   clearInterval(rotTimer); if (m.id === 'home' && sb && S.photos.length > 1) rotTimer = setInterval(rotatePhoto, 9000);
 }

@@ -364,3 +364,8 @@ li.sport .ghost{margin-top:-.15rem}
   .tabs button{flex:none}
   form.row>input[type=date],form.row>input[type=time]{flex:1 1 130px}
 }
+
+/* item opened from a notification */
+.flash{animation:flash 3s ease-out}
+@keyframes flash{0%,25%{box-shadow:0 0 0 3px var(--accent),0 0 24px var(--accent);background-color:var(--accent-soft)}100%{}}
+li.flash{border-radius:12px}
