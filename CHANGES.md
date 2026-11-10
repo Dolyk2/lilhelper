@@ -2,6 +2,12 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.3 – 10 Nov 2026
+- **Home weather redone:** big current weather for Prague (feels-like, high/low, rain chance, wind), an hourly strip for the next 10 hours, and **weather for each of today's plans** at its place and time (events without a place use Prague). Also tips like "Take an umbrella", Hradec Králové and your next trip.
+- **To-do grouped by person:** one coloured block each for you, Anna and Both, plus Everyone / Jirka / Anna filter buttons with open counts.
+- **Goals rebuilt from scratch:** each goal now has an amount per day (water in litres, stretching in minutes, reading in pages…). Donut charts show today's progress for each of you, with +/− buttons, 🔥 streaks and a bar chart of the last 7, 14 or 30 days. A summary donut shows how much of your goals each of you has done today. Water, stretching and reading are added automatically, and more can be added with one tap (walk, sleep, fruit & veg) or made your own. **The old tick-box goals were removed** as asked.
+- **Sports:** "Time by activity" is now one line per activity, split into colours for you, Anna and together. The three totals now sit side by side as intended.
+
 ## 1.2.1 – 10 Nov 2026
 - Notifications: the app re-registers the phone with the server every time it opens, so a sign-up that failed to save fixes itself.
 

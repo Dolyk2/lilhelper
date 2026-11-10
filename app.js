@@ -2,7 +2,7 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
-const APP_VERSION = '1.2.1', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
+const APP_VERSION = '1.3', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
@@ -51,13 +51,12 @@ const mins = s => +s.mins || 0, kms = s => +s.km || 0;
 
 /* ---------- modules ---------- */
 const cal = { y: new Date().getFullYear(), m: new Date().getMonth(), sel: iso(new Date()) };
-let listTab = null, noteWho = 'all';
-let songAdd = false, goalOwner = 2, songId = null, rotTimer = null, homePhotoId = null, sportRange = 'month', sportWho = 'all';
+let listTab = null, noteWho = 'all', taskWho = 'all';
+let songAdd = false, songId = null, rotTimer = null, homePhotoId = null, sportRange = 'month', sportWho = 'all';
 const legend = () => `<p class="legend">${[0, 1, 2].map(i => `<span class="tag who" data-w="${i}">${esc(owner(i))}</span>`).join(' ')}</p>`;
 const copyText = t => navigator.clipboard ? navigator.clipboard.writeText(t).then(() => toast('Copied'), () => toast('Could not copy. Select the text and copy it by hand.')) : toast('Copying is not supported here. Select the text and copy it by hand.');
 const spotifyId = u => (u || '').trim().match(/(?:open\.spotify\.com\/(?:intl-[a-z-]+\/)?|^spotify:)(track|album|playlist|artist|episode|show)[/:]([A-Za-z0-9]+)/);
 const overdue = x => !x.done && x.due && x.due < iso(new Date());
-const GOAL_IDEAS = [['📖', 'Read 15 pages'], ['💧', 'Drink 2 liters of water'], ['🧘', 'Stretching, 10 minutes'], ['🚶', 'Walk 8 000 steps'], ['😴', 'In bed by 23:00'], ['🍎', 'Fruit or veg with every meal'], ['📵', 'One hour without phone'], ['✍️', 'Write 3 things you are grateful for']];
 const nextSong = () => { songId = null; render(); };
 const hm = m => `${Math.floor(m / 60)}h ${m % 60}m`;
 function shufflePhoto() { homePhotoId = null; render(); }
@@ -77,8 +76,6 @@ function home() {
   const open = S.tasks.filter(x => !x.done).sort((a, b) => (a.due || '9').localeCompare(b.due || '9')).slice(0, 5);
   const ms = S.milestones.map(m => ({ ...m, n: daysTo(m) })).filter(m => m.n >= 0).sort((a, b) => a.n - b.n).slice(0, 3);
   const lst = S.lists.slice(0, 4).map(l => ({ name: l.name, owner: l.owner ?? 2, open: l.items.filter(i => !i.done) }));
-  const trip = S.events.filter(e => e.date >= t && e.lat != null && Math.round((parse(e.date) - t0) / 864e5) <= 9).sort(byTime)[0];
-  const places = [['Prague', 50.0755, 14.4378, ''], ['Hradec Králové', 50.2092, 15.8328, ''], ...(trip ? [[`${trip.location}, ${label(trip.date)}`, trip.lat, trip.lon, trip.date]] : [])];
   if (!S.songs.find(s => s.id === songId)) songId = S.songs.length ? S.songs[Math.floor(Math.random() * S.songs.length)].id : null;
   const song = S.songs.find(s => s.id === songId);
   if (!S.photos.find(p => p.id === homePhotoId)) homePhotoId = S.photos.length ? S.photos[Math.floor(Math.random() * S.photos.length)].id : null;
@@ -101,7 +98,7 @@ function home() {
       <div><h3>Special dates</h3>${ms.length
         ? `<div class="herorow">${ms.map((m, i) => `<div class="${i ? 'small' : ''}"><div class="big">${m.n === 0 ? 'Today' : m.n}</div><p>${m.n === 0 ? '' : m.n === 1 ? 'day until ' : 'days until '}${esc(m.title)}</p></div>`).join('')}</div>`
         : `<p class="muted">Add an anniversary or birthday under <a href="#dates">Special dates</a>.</p>`}</div>
-      <div><h3>Weather</h3><div class="wxrow">${places.map(p => `<div class="wxplace"><span class="muted">${esc(p[0])}</span><div data-wx="${p[1]}|${p[2]}|${p[3]}">…</div></div>`).join('')}</div></div>
+      <div class="wxpanel" id="wxbox" aria-live="polite">${lastWx || '<h3>Weather</h3><p class="muted">Loading weather…</p>'}</div>
     </div></section>
     <section class="card todaycard">${head('Today', 'calendar')}${evs.length ? `<ul class="items">${evs.map(e => evRow(e)).join('')}</ul>` : `<p class="muted">Nothing planned today.</p>`}</section>
     <section class="card">${head('Coming up', 'calendar')}${coming.length ? `<ul class="items">${coming.map(e => evRow(e, label(e.date))).join('')}</ul>` : `<p class="muted">No upcoming events.</p>`}</section>
@@ -164,15 +161,22 @@ function tasks() {
   const li = x => editing === x.id
     ? `<li><form class="row editing" data-form="saveTask">${hid(x.id)}<input type="text" name="text" value="${esc(x.text)}" required aria-label="To-do"><select name="owner" aria-label="Who">${ownerOpts(x.owner)}</select><input type="date" name="due" value="${x.due || ''}" aria-label="Due date">${formBtns}</form></li>`
     : `<li data-w="${x.owner}" class="${x.done ? 'done' : ''}"><input type="checkbox" ${x.done ? 'checked' : ''} data-act="toggleTask" data-id="${x.id}" aria-label="Done">
-    <span class="grow">${esc(x.text)} ${x.due ? `<span class="muted">due ${fmt(x.due)}</span>` : ''}</span>${overdue(x) ? '<span class="tag warn">overdue</span>' : ''}<span class="tag who">${esc(owner(x.owner))}</span>${editBtn(x.id)}<button class="ghost" data-act="delTask" data-id="${x.id}" aria-label="Delete to-do">✕</button></li>`;
-  const sorted = [...S.tasks].sort((a, b) => (a.done - b.done) || (a.due || '9').localeCompare(b.due || '9'));
+    <span class="grow">${esc(x.text)} ${x.due ? `<span class="muted">due ${fmt(x.due)}</span>` : ''}</span>${overdue(x) ? '<span class="tag warn">overdue</span>' : ''}${editBtn(x.id)}<button class="ghost" data-act="delTask" data-id="${x.id}" aria-label="Delete to-do">✕</button></li>`;
+  const byDue = (a, b) => (a.done - b.done) || (a.due || '9').localeCompare(b.due || '9');
+  /* one coloured group per person; a person's filter also shows the shared ("Both") to-dos */
+  const ws = taskWho === 'all' ? [0, 1, 2] : [+taskWho, 2];
+  const groups = ws.map(w => [w, S.tasks.filter(x => +x.owner === w).sort(byDue)]).filter(([, l]) => l.length);
+  const tab = (id, txt, w) => `<button class="${taskWho === id ? 'on' : ''}" data-act="twho" data-id="${id}"${w != null ? ` data-w="${w}"` : ''}>${txt}</button>`;
+  const count = w => S.tasks.filter(x => !x.done && (w === 'all' || +x.owner === +w || +x.owner === 2)).length;
   return `<h2>To-do</h2>
   <form class="card row" data-form="addTask"><h3 style="flex-basis:100%;margin:0">New to-do</h3>
     <input type="text" name="text" placeholder="What needs doing?" required aria-label="To-do">
     <select name="owner" aria-label="For whom">${ownerOpts(2)}</select>
     <input type="date" name="due" aria-label="Due date">
     <button class="primary">Add to-do</button></form>
-  ${legend()}<div class="card"><ul class="items">${sorted.map(li).join('') || '<li class="muted">Nothing here yet.</li>'}</ul></div>
+  <div class="tabs">${tab('all', `Everyone <small>${count('all')}</small>`)}${tab('0', `${esc(S.names[0])} <small>${count(0)}</small>`, 0)}${tab('1', `${esc(S.names[1])} <small>${count(1)}</small>`, 1)}</div>
+  ${groups.map(([w, l]) => `<div class="card tgroup" data-w="${w}"><div class="chead"><h3><i class="wdot"></i>${esc(owner(w))}</h3><span class="muted">${l.filter(x => !x.done).length} open${l.some(x => x.done) ? `, ${l.filter(x => x.done).length} done` : ''}</span></div>
+    <ul class="items">${l.map(li).join('')}</ul></div>`).join('') || '<div class="card"><p class="muted">Nothing here yet.</p></div>'}
   ${S.tasks.some(x => x.done) ? '<p><button data-act="clearDone">Clear all done</button></p>' : ''}`;
 }
 
@@ -266,10 +270,12 @@ const A = {
   srange: id => { sportRange = id; },
   swho: id => { sportWho = id; },
   nwho: id => { noteWho = id; },
+  twho: id => { taskWho = id; },
   delSong: id => { S.songs = S.songs.filter(s => s.id !== id); songId = null; },
-  preset: t => { if (GOAL_IDEAS.some(i => i[1] === t) && !S.goals.some(g => g.text === t)) S.goals.push({ id: uid(), text: t, owner: goalOwner, days: {} }); },
-  toggleGoal: id => { const g = S.goals.find(x => x.id === id), t = iso(new Date()); if (!g) return; g.days ||= {}; if (g.days[t]) delete g.days[t]; else g.days[t] = 1; },
-  delGoal: id => { if (confirm('Delete this goal and its streak history?')) S.goals = S.goals.filter(g => g.id !== id); },
+  delGoal: id => { const g = S.goals.find(x => x.id === id); if (g && confirm(`Delete "${g.name}" and its history?`)) S.goals = S.goals.filter(x => x.id !== id); },
+  gstep: k => { const [id, w, dir] = k.split('|'), g = S.goals.find(x => x.id === id); if (!g) return; const t = iso(new Date()), L = (g.log[w] ||= {}); const v = Math.max(0, Math.round(((L[t] || 0) + (+dir) * g.step) * 100) / 100); if (v) L[t] = v; else delete L[t]; },
+  gpreset: key => { const p = GOAL_PRESETS.find(x => x.key === key); if (p && !S.goals.some(g => g.id === 'g-' + key)) S.goals.push(newGoal(p, 'g-' + key)); },
+  grange: n => { goalDays = +n; },
   delSport: id => { S.sports = S.sports.filter(s => s.id !== id); },
   logout: () => { logout(); },
   notifyOn: () => { notifyOn(); },
@@ -298,9 +304,9 @@ const F = {
   saveMs: d => Object.assign(S.milestones.find(x => x.id === d.id), { title: d.title.trim(), date: d.date, repeat: !!d.repeat }),
   addSport: d => S.sports.push({ id: uid(), ...sportData(d) }),
   saveSport: d => Object.assign(S.sports.find(x => x.id === d.id), sportData(d)),
+  addGoal: d => S.goals.push(newGoal({ name: d.name.trim(), icon: (d.icon || '').trim() || '⭐', unit: d.unit.trim(), target: +d.target, step: +d.step || 1, owner: +d.owner }, uid())),
+  saveGoal: d => Object.assign(S.goals.find(x => x.id === d.id), { name: d.name.trim(), icon: (d.icon || '').trim() || '⭐', unit: d.unit.trim(), target: Math.max(+d.target || 1, 0.01), step: +d.step || 1, owner: +d.owner }),
   addSong: d => { const m = spotifyId(d.url); if (!m) { toast('That does not look like a Spotify link.'); return; } S.songs.push({ id: uid(), kind: m[1], sid: m[2] }); songAdd = false; songId = null; },
-  addGoal: d => S.goals.push({ id: uid(), text: d.text.trim(), owner: +d.owner, days: {} }),
-  saveGoal: d => Object.assign(S.goals.find(x => x.id === d.id), { text: d.text.trim(), owner: +d.owner }),
   saveToken: d => { S.calToken = d.token.trim(); },
   names: d => { S.names = [d.a.trim() || 'Me', d.b.trim() || 'Her']; }
 };
@@ -564,7 +570,7 @@ async function notifyTest() {
 }
 /* What did this device add compared with the server copy? Used to tell the partner. */
 const KINDS = [['events', 'Calendar', x => x.title], ['tasks', 'To-do', x => x.text], ['notes', 'Notes', x => x.title || x.body], ['milestones', 'Special dates', x => x.title],
-  ['sports', 'Sports', x => x.type], ['goals', 'Goals', x => x.text], ['songs', 'Music', () => 'a song'], ['photos', 'Memories', () => 'a photo']];
+  ['sports', 'Sports', x => x.type], ['goals', 'Goals', x => x.name || x.text], ['songs', 'Music', () => 'a song'], ['photos', 'Memories', () => 'a photo']];
 function addedItems(before, after) {
   const out = [], ids = a => new Set((Array.isArray(a) ? a : []).map(x => x.id));
   for (const [k, label, txt] of KINDS) { const old = ids(before?.[k]); (after[k] || []).filter(x => !old.has(x.id)).forEach(x => out.push({ where: label, what: String(txt(x) || '').slice(0, 80) })); }
@@ -596,25 +602,62 @@ function notifyCard() {
 }
 
 /* ---------- weather (Open-Meteo, no key needed) + event places ---------- */
+const HOME_PLACES = [['Prague', 50.0755, 14.4378], ['Hradec Králové', 50.2092, 15.8328]]; // first one is "home"
 const WX = {};
+let lastWx = ''; // last weather HTML, shown straight away on the next render instead of "Loading…"
 const wxText = c => c === 0 ? 'Clear' : c <= 2 ? 'Partly cloudy' : c === 3 ? 'Cloudy' : c <= 48 ? 'Fog' : c <= 57 ? 'Drizzle' : c <= 67 ? 'Rain' : c <= 77 ? 'Snow' : c <= 82 ? 'Showers' : c <= 86 ? 'Snow showers' : 'Thunderstorm';
-const wxIcon = c => c === 0 ? '☀️' : c <= 2 ? '⛅' : c === 3 ? '☁️' : c <= 48 ? '🌫️' : c <= 67 ? '🌧️' : c <= 77 ? '❄️' : c <= 82 ? '🌦️' : c <= 86 ? '🌨️' : '⛈️';
+const wxIcon = (c, day = 1) => c === 0 ? (day ? '☀️' : '🌙') : c <= 2 ? (day ? '⛅' : '☁️') : c === 3 ? '☁️' : c <= 48 ? '🌫️' : c <= 67 ? '🌧️' : c <= 77 ? '❄️' : c <= 82 ? '🌦️' : c <= 86 ? '🌨️' : '⛈️';
 async function wx(lat, lon) {
-  const k = lat + ',' + lon; if (WX[k] && Date.now() - WX[k].t < 18e5) return WX[k].d;
-  const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=10`);
+  const k = (+lat).toFixed(3) + ',' + (+lon).toFixed(3); if (WX[k] && Date.now() - WX[k].t < 18e5) return WX[k].d;
+  const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,is_day&hourly=temperature_2m,weather_code,precipitation_probability,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunset&timezone=auto&forecast_days=10`);
+  if (!r.ok) throw new Error('weather ' + r.status);
   const d = await r.json(); WX[k] = { t: Date.now(), d }; return d;
 }
-async function fillWeather() {
-  for (const el of view.querySelectorAll('[data-wx]')) {
-    const [lat, lon, date] = el.dataset.wx.split('|');
-    try {
-      const d = await wx(lat, lon); let c, t;
-      if (date) { const i = d.daily.time.indexOf(date); if (i < 0) { el.textContent = 'no forecast yet'; continue; } c = d.daily.weather_code[i]; t = `${Math.round(d.daily.temperature_2m_min[i])}° to ${Math.round(d.daily.temperature_2m_max[i])}°`; }
-      else { c = d.current.weather_code; t = `${Math.round(d.current.temperature_2m)}°`; }
-      el.innerHTML = `<span class="wxi">${wxIcon(c)}</span> <strong>${t}</strong> <span class="muted">${wxText(c)}</span>`;
-    } catch { el.textContent = 'weather unavailable'; }
-  }
+const deg = v => `${Math.round(v)}°`;
+const hourAt = (d, date, time) => d.hourly.time.indexOf(`${date}T${(time || '12:00').slice(0, 2)}:00`);
+/* Weather for one planned event: at its place (or home) and at its time (or the whole day). */
+async function eventWx(e) {
+  const at = e.lat != null ? [e.lat, e.lon] : HOME_PLACES[0].slice(1);
+  const d = await wx(...at);
+  const h = e.time ? hourAt(d, e.date, e.time) : -1;
+  if (h >= 0) return { code: d.hourly.weather_code[h], day: d.hourly.is_day[h], temp: deg(d.hourly.temperature_2m[h]), rain: d.hourly.precipitation_probability[h], min: d.hourly.temperature_2m[h] };
+  const i = d.daily.time.indexOf(e.date); if (i < 0) return null;
+  return { code: d.daily.weather_code[i], day: 1, temp: `${deg(d.daily.temperature_2m_min[i])}–${deg(d.daily.temperature_2m_max[i])}`, rain: d.daily.precipitation_probability_max[i], min: d.daily.temperature_2m_min[i] };
 }
+async function buildWeather() {
+  const box = view.querySelector('#wxbox'); if (!box) return;
+  const t = iso(new Date()), t0 = today0(), [hName, hLat, hLon] = HOME_PLACES[0];
+  try {
+    const d = await wx(hLat, hLon), c = d.current, di = d.daily.time.indexOf(t);
+    const nowH = d.hourly.time.indexOf(c.time.slice(0, 13) + ':00');
+    const hours = [0, 2, 4, 6, 8, 10].map(o => nowH + o).filter(i => nowH >= 0 && i < d.hourly.time.length);
+    /* today's plans that haven't finished yet (anything started over 2 hours ago is hidden) */
+    const nowHM = new Date().getHours() * 60 + new Date().getMinutes();
+    const plans = S.events.filter(e => e.date === t && (!e.time || +e.time.slice(0, 2) * 60 + +e.time.slice(3, 5) >= nowHM - 120))
+      .sort((a, b) => (a.time || '').localeCompare(b.time || '')).slice(0, 4);
+    const pw = await Promise.all(plans.map(e => eventWx(e).catch(() => null)));
+    /* the next trip within the forecast range (an event somewhere else in the next 9 days) */
+    const trip = S.events.filter(e => e.date > t && e.lat != null && Math.round((parse(e.date) - t0) / 864e5) <= 9).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const tw = trip ? await eventWx(trip).catch(() => null) : null;
+    const others = await Promise.all(HOME_PLACES.slice(1).map(async ([n, la, lo]) => { try { const o = await wx(la, lo); return { n, c: o.current }; } catch { return null; } }));
+    /* friendly tips */
+    const rainMax = Math.max(di >= 0 ? d.daily.precipitation_probability_max[di] : 0, ...pw.filter(Boolean).map(w => w.rain || 0));
+    const coldMin = Math.min(di >= 0 ? d.daily.temperature_2m_min[di] : 99, ...pw.filter(Boolean).map(w => w.min));
+    const tips = [rainMax >= 50 && '☂️ Take an umbrella', coldMin <= 0 && '🧣 Freezing, wrap up warm', c.wind_speed_10m >= 35 && '💨 Very windy',
+      di >= 0 && d.daily.temperature_2m_max[di] >= 28 && '🧴 Hot, sunscreen and water', rainMax < 20 && c.weather_code <= 2 && c.is_day && '😎 Nice day to go outside'].filter(Boolean).slice(0, 2);
+    const plansHtml = plans.length ? `<div class="wxplans">${plans.map((e, i) => { const w = pw[i]; return `<div class="wxplan" data-w="${e.who}"><span class="wxpt">${esc(e.time || 'all day')}</span><span class="grow">${esc(e.title)}<small>${esc(e.location || hName)}</small></span>${w ? `<span class="wxpw">${wxIcon(w.code, w.day)} <b>${w.temp}</b>${w.rain >= 20 ? ` <small>💧${w.rain}%</small>` : ''}</span>` : '<small>no forecast</small>'}</div>`; }).join('')}</div>`
+      : '<p class="wxnone">No plans today, the weather is all yours.</p>';
+    lastWx = `<div class="wxtop"><span class="wxbig">${wxIcon(c.weather_code, c.is_day)}</span>
+      <div><div class="wxtemp">${deg(c.temperature_2m)}</div><div class="wxdesc">${wxText(c.weather_code)} in ${esc(hName)}</div></div>
+      <div class="wxmeta">${di >= 0 ? `<span>↑ ${deg(d.daily.temperature_2m_max[di])} ↓ ${deg(d.daily.temperature_2m_min[di])}</span><span>💧 ${d.daily.precipitation_probability_max[di]}% rain</span>` : ''}<span>feels ${deg(c.apparent_temperature)} · 💨 ${Math.round(c.wind_speed_10m)} km/h</span></div></div>
+      <div class="wxhours">${hours.map((i, k) => `<div><small>${k ? d.hourly.time[i].slice(11, 16) : 'Now'}</small><span>${k ? wxIcon(d.hourly.weather_code[i], d.hourly.is_day[i]) : wxIcon(c.weather_code, c.is_day)}</span><b>${deg(k ? d.hourly.temperature_2m[i] : c.temperature_2m)}</b>${d.hourly.precipitation_probability[i] >= 30 ? `<small class="wxrain">${d.hourly.precipitation_probability[i]}%</small>` : ''}</div>`).join('')}</div>
+      <div class="wxsub"><h4>Today's plans</h4>${plansHtml}</div>
+      ${tips.length ? `<div class="wxtips">${tips.map(x => `<span>${x}</span>`).join('')}</div>` : ''}
+      <div class="wxfoot">${others.filter(Boolean).map(o => `<span>${esc(o.n)} ${wxIcon(o.c.weather_code, o.c.is_day)} <b>${deg(o.c.temperature_2m)}</b></span>`).join('')}${trip && tw ? `<span>${esc(trip.location)}, ${parse(trip.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} ${wxIcon(tw.code)} <b>${tw.temp}</b></span>` : ''}</div>`;
+    const cur = view.querySelector('#wxbox'); if (cur) cur.innerHTML = lastWx;
+  } catch { if (!lastWx) box.innerHTML = '<h3>Weather</h3><p class="muted">Weather is not available right now.</p>'; }
+}
+const fillWeather = buildWeather;
 async function geocodeEvent(e) {
   if (!e.location) return;
   try {
@@ -635,25 +678,84 @@ async function rotatePhoto() {
   }, 450);
 }
 
-/* ---------- daily goals ---------- */
+/* ---------- daily goals: amounts per person, donuts for today, bar chart history ---------- */
+const GOAL_PRESETS = [
+  { key: 'water', name: 'Drink water', icon: '💧', unit: 'L', target: 2, step: 0.25 },
+  { key: 'stretch', name: 'Stretching', icon: '🧘', unit: 'min', target: 15, step: 5 },
+  { key: 'read', name: 'Read a book', icon: '📖', unit: 'pages', target: 20, step: 5 },
+  { key: 'walk', name: 'Walk', icon: '🚶', unit: 'steps', target: 8000, step: 1000 },
+  { key: 'sleep', name: 'Sleep', icon: '😴', unit: 'hours', target: 8, step: 0.5 },
+  { key: 'veg', name: 'Fruit & veg', icon: '🍎', unit: 'portions', target: 5, step: 1 }
+];
+const newGoal = (p, id) => ({ id, name: p.name, icon: p.icon, unit: p.unit, target: p.target, step: p.step, owner: p.owner ?? 2, log: { 0: {}, 1: {} } });
+const isNewGoal = g => isObj(g) && isObj(g.log) && typeof g.target === 'number';
+let goalDays = 7;
+/* One-time switch to the new goals: old tick-box goals are removed and water, stretching and
+   reading are added. Fixed ids, so both phones doing this at once doesn't create duplicates. */
+function migrateGoals() {
+  if (S.goalsV === 2 && S.goals.every(isNewGoal)) return false;
+  S.goals = S.goals.filter(isNewGoal);
+  if (S.goalsV !== 2) for (const k of ['water', 'stretch', 'read']) if (!S.goals.some(g => g.id === 'g-' + k)) S.goals.push(newGoal(GOAL_PRESETS.find(p => p.key === k), 'g-' + k));
+  S.goalsV = 2; return true;
+}
+const amt = (g, w, day) => +(g.log?.[w]?.[day]) || 0;
+const nfmt = v => (Math.round(v * 100) / 100).toLocaleString();
+const people = g => g.owner == 2 ? [0, 1] : [+g.owner];
+const lastDays = n => Array.from({ length: n }, (_, i) => { const d = today0(); d.setDate(d.getDate() - (n - 1 - i)); return iso(d); });
+function donut(pct, size, stroke, big, small) {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r, p = Math.max(0, Math.min(1, pct || 0)), m = size / 2;
+  return `<svg class="donut${p >= 1 ? ' full' : ''}" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="${Math.round(p * 100)} percent">
+    <circle class="dtrack" cx="${m}" cy="${m}" r="${r}" stroke-width="${stroke}"/>
+    ${p > 0 ? '' : '<!--'}<circle class="dval" cx="${m}" cy="${m}" r="${r}" stroke-width="${stroke}" stroke-dasharray="${(c * p).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 ${m} ${m})"/>${p > 0 ? '' : '-->'}
+    <text class="dbig" x="${m}" y="${small ? m - size * .02 : m + size * .07}" font-size="${size * .22}">${big}</text>
+    ${small ? `<text class="dsmall" x="${m}" y="${m + size * .17}" font-size="${size * .12}">${small}</text>` : ''}</svg>`;
+}
+function streakOf(g, w) { let n = 0; const d = today0(); if (amt(g, w, iso(d)) < g.target) d.setDate(d.getDate() - 1); while (amt(g, w, iso(d)) >= g.target && n < 999) { n++; d.setDate(d.getDate() - 1); } return n; }
+/* Share of a person's goals met on a day (each goal counts up to 100%). */
+const dayScore = (w, day) => { const gs = S.goals.filter(g => people(g).includes(w)); return gs.length ? gs.reduce((a, g) => a + Math.min(1, amt(g, w, day) / g.target), 0) / gs.length : 0; };
+function goalChart(g) {
+  const days = lastDays(goalDays), ws = people(g), W = 320, H = 120, top = 8, bottom = 18, ch = H - top - bottom;
+  const max = Math.max(g.target * 1.15, ...days.flatMap(d => ws.map(w => amt(g, w, d)))) || 1;
+  const gw = W / days.length, bw = Math.min(14, (gw - 6) / ws.length), y = v => top + ch - v / max * ch;
+  const bars = days.map((d, i) => ws.map((w, j) => { const v = amt(g, w, d), x = i * gw + (gw - bw * ws.length) / 2 + j * bw;
+    return `<rect data-w="${w}" x="${x.toFixed(1)}" y="${y(v).toFixed(1)}" width="${(bw - 1.5).toFixed(1)}" height="${Math.max(0, ch + top - y(v)).toFixed(1)}" rx="2"><title>${esc(S.names[w])}, ${fmt(d)}: ${nfmt(v)} ${esc(g.unit)}</title></rect>`; }).join('')).join('');
+  const every = days.length > 10 ? 5 : 1;
+  const labels = days.map((d, i) => i % every && i !== days.length - 1 ? '' : `<text x="${(i * gw + gw / 2).toFixed(1)}" y="${H - 4}">${days.length > 10 ? parse(d).getDate() : parse(d).toLocaleDateString(undefined, { weekday: 'narrow' })}</text>`).join('');
+  return `<svg class="gchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(g.name)}, last ${goalDays} days">
+    <line class="gtarget" x1="0" x2="${W}" y1="${y(g.target).toFixed(1)}" y2="${y(g.target).toFixed(1)}"/>${bars}${labels}</svg>`;
+}
 function goals() {
   const t = iso(new Date());
-  const streak = g => { let n = 0; const d = parse(t); if (!g.days[t]) d.setDate(d.getDate() - 1); while (g.days[iso(d)]) { n++; d.setDate(d.getDate() - 1); } return n; };
-  const week = g => Array.from({ length: 7 }, (_, i) => { const d = parse(t); d.setDate(d.getDate() - 6 + i); return `<i class="${g.days[iso(d)] ? 'on' : ''}"></i>`; }).join('');
-  const done = S.goals.filter(g => g.days[t]).length, pct = S.goals.length ? Math.round(done / S.goals.length * 100) : 0;
-  const row = g => editing === g.id
-    ? `<li><form class="row editing" data-form="saveGoal">${hid(g.id)}<input type="text" name="text" value="${esc(g.text)}" required aria-label="Goal"><select name="owner" aria-label="Who">${ownerOpts(g.owner)}</select>${formBtns}</form></li>`
-    : `<li data-w="${g.owner}" class="${g.days[t] ? 'done' : ''}"><input type="checkbox" ${g.days[t] ? 'checked' : ''} data-act="toggleGoal" data-id="${g.id}" aria-label="Done today">
-      <div class="grow">${esc(g.text)}<div class="week" aria-label="Last 7 days">${week(g)}</div></div><span class="muted">${streak(g)} day streak</span><span class="tag who">${esc(owner(g.owner))}</span>${editBtn(g.id)}<button class="ghost" data-act="delGoal" data-id="${g.id}" aria-label="Delete goal">✕</button></li>`;
-  return `<h2>Daily goals</h2><p class="muted">${done} of ${S.goals.length} done today</p>
-  <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div>
-  ${GOAL_IDEAS.some(([, t]) => !S.goals.some(g => g.text === t)) ? `<div class="card"><div class="chead"><h3>Popular goals</h3><label class="muted">For <select onchange="goalOwner=+this.value" aria-label="Who is it for">${ownerOpts(goalOwner)}</select></label></div>
-    <div class="ideas">${GOAL_IDEAS.filter(([, t]) => !S.goals.some(g => g.text === t)).map(([ic, t]) => `<button class="idea" data-act="preset" data-id="${esc(t)}"><span class="ic">${ic}</span>${esc(t)}</button>`).join('')}</div></div>` : ''}
-  <form class="card row" data-form="addGoal"><h3 style="flex-basis:100%;margin:0">New daily goal</h3>
-    <input type="text" name="text" placeholder="e.g. 10 000 steps, read 20 minutes, no sugar" required aria-label="Goal">
-    <select name="owner" aria-label="For whom">${ownerOpts(2)}</select><button class="primary">Add goal</button></form>
-  ${legend()}<div class="card"><ul class="items">${S.goals.map(row).join('') || '<li class="muted">No goals yet. Add one above and tick it off every day.</li>'}</ul></div>`;
+  const summary = [0, 1].map(w => {
+    const gs = S.goals.filter(g => people(g).includes(w)), met = gs.filter(g => amt(g, w, t) >= g.target).length;
+    const week = lastDays(7).map(d => `<i style="--h:${Math.round(dayScore(w, d) * 100)}%" title="${fmt(d)}: ${Math.round(dayScore(w, d) * 100)}%"></i>`).join('');
+    return `<div class="card gsum" data-w="${w}">${donut(dayScore(w, t), 132, 14, Math.round(dayScore(w, t) * 100) + '%', 'today')}
+      <div><h3>${esc(S.names[w])}</h3><p class="muted">${met} of ${gs.length} goals done today</p><div class="gweek" aria-label="Last 7 days">${week}</div><p class="muted gwl">last 7 days</p></div></div>`;
+  }).join('');
+  const card = g => editing === g.id
+    ? `<form class="card editing gform" data-form="saveGoal">${hid(g.id)}${goalFields(g)}<p>${formBtns}</p></form>`
+    : `<div class="card goal"><div class="chead"><h3><span class="gicon">${esc(g.icon)}</span>${esc(g.name)}</h3><span>${editBtn(g.id)}<button class="ghost" data-act="delGoal" data-id="${g.id}" aria-label="Delete goal">✕</button></span></div>
+      <p class="muted gtgt">Goal: ${nfmt(g.target)} ${esc(g.unit)} a day</p>
+      <div class="gpeople">${people(g).map(w => { const v = amt(g, w, t), st = streakOf(g, w); return `<div class="gperson" data-w="${w}">${donut(v / g.target, 96, 10, nfmt(v), '/ ' + nfmt(g.target) + ' ' + g.unit)}
+        <div class="gname">${esc(S.names[w])}${st >= 2 ? ` <span title="days in a row">🔥${st}</span>` : ''}</div>
+        <div class="gbtns"><button data-act="gstep" data-id="${g.id}|${w}|-1" aria-label="Less for ${esc(S.names[w])}">−</button><button class="primary" data-act="gstep" data-id="${g.id}|${w}|1" aria-label="Add ${nfmt(g.step)} ${esc(g.unit)} for ${esc(S.names[w])}">+${nfmt(g.step)}</button></div></div>`; }).join('')}</div>
+      ${goalChart(g)}</div>`;
+  const left = GOAL_PRESETS.filter(p => !S.goals.some(g => g.id === 'g-' + p.key));
+  return `<h2>Daily goals</h2>${legend()}
+  <div class="gsums">${summary}</div>
+  <div class="chead" style="margin:1.2rem 0 .6rem;flex-wrap:wrap"><h3>Your goals today</h3><div class="tabs" style="margin:0;align-items:center"><span class="muted">History:</span>${[7, 14, 30].map(n => `<button class="${goalDays === n ? 'on' : ''}" data-act="grange" data-id="${n}">${n} days</button>`).join('')}</div></div>
+  <div class="goalgrid">${S.goals.map(card).join('') || '<div class="card"><p class="muted">No goals yet. Add one below.</p></div>'}</div>
+  ${left.length ? `<div class="card"><h3>Add a goal</h3><div class="ideas">${left.map(p => `<button class="idea" data-act="gpreset" data-id="${p.key}"><span class="ic">${p.icon}</span><span>${esc(p.name)}<small class="muted"> ${nfmt(p.target)} ${esc(p.unit)}</small></span></button>`).join('')}</div></div>` : ''}
+  <form class="card gform" data-form="addGoal"><h3>Your own goal</h3>${goalFields({ icon: '⭐', owner: 2, step: 1 })}<p><button class="primary">Add goal</button></p></form>`;
 }
+const goalFields = g => `<div class="row" style="display:flex;flex-wrap:wrap;gap:.55rem">
+  <input type="text" name="icon" value="${esc(g.icon || '')}" maxlength="4" aria-label="Icon (emoji)" style="flex:0 0 4rem;text-align:center">
+  <input type="text" name="name" value="${esc(g.name || '')}" placeholder="Name, e.g. Meditate" required aria-label="Name">
+  <input type="number" name="target" value="${g.target ?? ''}" min="0.01" step="any" placeholder="Daily target" required aria-label="Daily target" style="width:8rem">
+  <input type="text" name="unit" value="${esc(g.unit || '')}" placeholder="unit (min, L…)" required aria-label="Unit" style="flex:0 1 8rem">
+  <input type="number" name="step" value="${g.step ?? 1}" min="0.01" step="any" aria-label="Amount added per tap" title="Amount added per tap" style="width:6rem">
+  <select name="owner" aria-label="Who tracks it">${ownerOpts(g.owner ?? 2)}</select></div>
+  <p class="muted" style="font-size:.82rem">Icon · name · daily target · unit · amount per tap · who tracks it</p>`;
 
 /* ---------- sports ---------- */
 const SPORT_TYPES = ['Gym', 'Running', 'Walking', 'Hiking', 'Cycling', 'Swimming', 'Yoga', 'Skating', 'Football', 'Stretching'];
@@ -672,7 +774,6 @@ function sports() {
   const byType = {}; inR.forEach(s => { (byType[s.type] ||= [0, 0, 0])[+s.who || 0] += mins(s); });
   const sum3 = v => v[0] + v[1] + v[2];
   const bars = Object.entries(byType).sort((a, b) => sum3(b[1]) - sum3(a[1])).slice(0, 6), maxB = bars[0] ? sum3(bars[0][1]) : 1;
-  const maxS = Math.max(1, ...bars.flatMap(([, v]) => v));
   const list = inR.filter(s => sportWho === 'all' || has(s, +sportWho));
   const tab = (act, id, on, txt) => `<button class="${on ? 'on' : ''}" data-act="${act}" data-id="${id}">${txt}</button>`;
   const types = [...new Set([...SPORT_TYPES, ...S.sports.map(s => s.type)])];
@@ -696,7 +797,9 @@ function sports() {
     ${[0, 1].map(i => `<div class="card" data-w="${i}"><p class="muted">${esc(S.names[i])}</p><div class="big">${hm(tm(i))}</div><p class="muted">${mine(i).length} activities, ${km(i).toFixed(1)} km</p></div>`).join('')}
   </div>
   <p class="muted" style="margin-top:-.4rem">Activities done together count for both of you.</p>
-  ${bars.length ? `<div class="card"><h3>Time by activity</h3>${legend()}${bars.map(([t, v]) => `<div class="bgroup"><div class="bhead"><strong>${esc(t)}</strong><span class="muted">${hm(sum3(v))} in total</span></div>${[0, 1, 2].filter(w => v[w]).map(w => `<div class="bar" data-w="${w}"><span>${esc(owner(w))}</span><div><i style="width:${Math.round(v[w] / maxS * 100)}%"></i></div><b>${hm(v[w])}</b></div>`).join('')}</div>`).join('')}</div>` : ''}
+  ${bars.length ? `<div class="card"><h3>Time by activity</h3>${legend()}${bars.map(([t, v]) => { const on = [0, 1, 2].filter(w => v[w]); return `<div class="bgroup"><div class="bhead"><strong>${esc(t)}</strong><span class="muted">${hm(sum3(v))}</span></div>
+    <div class="stack" role="img" aria-label="${esc(t)}: ${on.map(w => `${esc(owner(w))} ${hm(v[w])}`).join(', ')}"><div style="width:${Math.max(4, Math.round(sum3(v) / maxB * 100))}%">${on.map(w => `<i data-w="${w}" style="flex:${v[w]}" title="${esc(owner(w))}: ${hm(v[w])}"></i>`).join('')}</div></div>
+    <div class="stacklbl">${on.map(w => `<span data-w="${w}"><b></b>${esc(owner(w))} ${hm(v[w])}</span>`).join('')}</div></div>`; }).join('')}</div>` : ''}
   <form class="card row" data-form="addSport"><h3 style="flex-basis:100%;margin:0">Log an activity</h3>${fields({})}<button class="primary">Add activity</button></form>
   <datalist id="sporttypes">${types.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
   <div class="tabs">${tab('swho', 'all', sportWho === 'all', 'Everyone')}${tab('swho', '0', sportWho === '0', esc(S.names[0]))}${tab('swho', '1', sportWho === '1', esc(S.names[1]))}</div>
@@ -709,6 +812,7 @@ let lastPage = null;
 function render() {
   document.body.classList.toggle('locked', !authed);
   if (!authed) { nav.innerHTML = ''; view.innerHTML = loginView(); return; }
+  if (migrateGoals()) save();
   const m = MODS.find(m => m.id === location.hash.slice(1)) || MODS[0];
   nav.innerHTML = MODS.map(x => `<a href="#${x.id}" class="${x.id === m.id ? 'on' : ''}" aria-label="${x.title}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[x.id] || ''}</svg><span>${x.title}</span></a>`).join('');
   document.getElementById('brand').textContent = S.names.join(' + ');
@@ -723,7 +827,7 @@ function render() {
   hydrate(); fillWeather();
   clearInterval(rotTimer); if (m.id === 'home' && sb && S.photos.length > 1) rotTimer = setInterval(rotatePhoto, 9000);
 }
-const UI_ONLY = new Set(['pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
+const UI_ONLY = new Set(['pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'twho', 'grange', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
 document.addEventListener('submit', e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
   if (f.dataset.form === 'login') { e.preventDefault(); login(new FormData(f)); return; }
