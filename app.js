@@ -2,7 +2,7 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
-const APP_VERSION = '1.2', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
+const APP_VERSION = '1.2.1', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
@@ -524,6 +524,11 @@ async function swReg() { return navigator.serviceWorker.register('sw.js'); }
 async function checkPush() {
   if (!pushReady()) return;
   try { const r = await navigator.serviceWorker.getRegistration(); pushSub = r ? await r.pushManager.getSubscription() : null; } catch { pushSub = null; }
+  /* make sure the server knows this phone (also repairs a sign-up that failed to save earlier) */
+  if (pushSub && me() !== null) {
+    const { error } = await sb.from('push_subs').upsert({ endpoint: pushSub.endpoint, sub: pushSub.toJSON(), who: me() });
+    if (error) console.warn('Could not register this device for notifications', error);
+  }
 }
 async function notifyOn() {
   if (me() === null) { toast('First choose who uses this device.'); return; }
@@ -532,7 +537,7 @@ async function notifyOn() {
     const reg = await swReg(); await navigator.serviceWorker.ready;
     pushSub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(CFG.VAPID_PUBLIC_KEY) });
     const { error } = await sb.from('push_subs').upsert({ endpoint: pushSub.endpoint, sub: pushSub.toJSON(), who: me() });
-    if (error) throw error;
+    if (error) { await pushSub.unsubscribe().catch(() => {}); pushSub = null; throw error; } // keep phone and server in step
     toast('Notifications are on for this device');
   } catch (e) { toast('Could not turn on notifications: ' + (e.message || e)); }
   render();
@@ -550,7 +555,11 @@ async function callNotify(body) {
   return data;
 }
 async function notifyTest() {
-  try { const r = await callNotify({ test: true, endpoint: pushSub?.endpoint }); toast(r?.sent ? 'Test sent, it should arrive in a few seconds' : 'Nothing was sent. Is this device turned on?'); }
+  try {
+    await checkPush(); // re-register first, in case the server lost this phone
+    const r = await callNotify({ test: true, endpoint: pushSub?.endpoint });
+    toast(r?.sent ? 'Test sent, it should arrive in a few seconds' : r?.error ? 'Server problem: ' + r.error : 'Nothing was sent. Tap “Turn off”, then “Turn on notifications” again.');
+  }
   catch (e) { toast('Test failed: ' + (e.message || e) + '. Is the "notify" function set up in Supabase?'); }
 }
 /* What did this device add compared with the server copy? Used to tell the partner. */

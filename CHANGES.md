@@ -2,6 +2,9 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.2.1 – 10 Nov 2026
+- Notifications: the app re-registers the phone with the server every time it opens, so a sign-up that failed to save fixes itself.
+
 ## 1.2 – 10 Nov 2026
 - **Version number** at the bottom of Settings, so you can see if your phone has the latest version.
 - **Notes can belong to someone** (you, your partner or both), like the other tabs, with a colour stripe, a name tag and an Everyone / per-person filter. Older notes count as "Both".

@@ -51,10 +51,11 @@ Deno.serve(async (req) => {
         tag: 'us-update',
       };
 
+  const pub = Deno.env.get('VAPID_PUBLIC_KEY'), priv = Deno.env.get('VAPID_PRIVATE_KEY');
+  if (!pub || !priv) return json({ error: 'VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY secrets are missing' }, 500);
   // The "subject" must identify the sender; the site's own address is accepted by Apple and Google.
   const origin = req.headers.get('Origin');
-  webpush.setVapidDetails(origin && origin.startsWith('https://') ? origin : 'mailto:admin@us-helper.app',
-    Deno.env.get('VAPID_PUBLIC_KEY')!, Deno.env.get('VAPID_PRIVATE_KEY')!);
+  webpush.setVapidDetails(origin && origin.startsWith('https://') ? origin : 'mailto:admin@us-helper.app', pub, priv);
 
   let sent = 0;
   await Promise.all(subs.map(async (s) => {
