@@ -2,12 +2,12 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
-const APP_VERSION = '1.9', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
+const APP_VERSION = '1.10', APP_DATE = '12 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
   lists: [{ id: 'l1', name: 'Shopping', items: [] }], milestones: [],
-  health: { profiles: {}, food: [], weights: [], myFoods: [], days: {} }, money: { tx: [], budgets: {}, saveGoal: 0, rules: [] }
+  health: { profiles: {}, food: [], weights: [], myFoods: [], days: {}, burn: {} }, money: { tx: [], budgets: {}, saveGoal: 0, rules: [] }
 };
 const clone = o => typeof structuredClone === 'function' ? structuredClone(o) : JSON.parse(JSON.stringify(o));
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -833,6 +833,8 @@ const goalFields = g => `<div class="row" style="display:flex;flex-wrap:wrap;gap
 
 /* ---------- sports ---------- */
 const SPORT_TYPES = ['Gym', 'Running', 'Walking', 'Hiking', 'Cycling', 'Swimming', 'Yoga', 'Skating', 'Football', 'Stretching'];
+/* "≈ 420 kcal" for the person looking at the page (their own weight), when the activity is theirs or shared */
+const sportKcalFor = s => { const w = I(), b = (s.who == w || s.who == 2) && mins(s) ? budgetOf(w) : null; return b ? `${s.gk?.[w] ? '⌚ ' : '≈ '}${sportKcal(s, b.kg, b.bmr, w).toLocaleString()} kcal` : ''; };
 const sportData = d => ({ type: d.type.trim(), date: d.date, mins: Math.max(0, +d.mins || 0), km: Math.max(0, +d.km || 0), who: +d.who, exercises: (d.exercises || '').trim(), note: (d.note || '').trim() });
 function sports() {
   const today = iso(new Date()), t0 = today0();
@@ -860,7 +862,7 @@ function sports() {
     <input type="text" name="note" placeholder="Note (how it felt, where…)" value="${esc(s.note || '')}" aria-label="Note" style="flex-basis:100%">`;
   const row = s => editing === s.id
     ? `<li><form class="row editing" data-form="saveSport">${hid(s.id)}${fields(s)}${formBtns}</form></li>`
-    : `<li data-w="${s.who}" data-hl="${s.id}" class="sport"><div class="grow"><div class="sline"><span class="tag teal">${esc(s.type)}</span><strong>${fmtShort(s.date)}</strong><span class="muted">${[mins(s) && hm(mins(s)), kms(s) && kms(s) + ' km'].filter(Boolean).join(' · ')}</span><span class="tag who">${esc(owner(s.who))}</span></div>
+    : `<li data-w="${s.who}" data-hl="${s.id}" class="sport"><div class="grow"><div class="sline"><span class="tag teal">${esc(s.type)}</span><strong>${fmtShort(s.date)}</strong><span class="muted">${[mins(s) && hm(mins(s)), kms(s) && kms(s) + ' km', sportKcalFor(s)].filter(Boolean).join(' · ')}</span><span class="tag who">${esc(owner(s.who))}</span></div>
       ${s.exercises ? `<div class="sdesc">${esc(s.exercises)}</div>` : ''}${s.note ? `<div class="muted sdesc">${esc(s.note)}</div>` : ''}</div>
       ${editBtn(s.id)}<button class="ghost" data-act="delSport" data-id="${s.id}" aria-label="Delete activity">✕</button></li>`;
   return `<h2>Sports</h2>

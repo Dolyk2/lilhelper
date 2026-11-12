@@ -2,6 +2,14 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.10 – 12 Nov 2026
+- **Nutrients in Health:** every food can have protein, carbs and fat. They fill in by themselves from the built-in food list (all foods now have them), from online product search, and from foods you added before; or type them from the packaging. The day card shows three bars against your daily targets (protein 1.6 g per kg of goal weight, fat about 30 % of calories, carbs the rest), and each food shows its nutrients.
+- **Calories burned now follow your real day:** Health has a new "🔥 Burned" card. Without Garmin it adds up resting burn × 1.2 (normal daily life), steps above 3,000 (from the **Steps** goal) and every sport logged on the Sports page that day (standard MET values × your weight × minutes; for cycling and running the speed counts). Walks aren't counted twice when steps are logged.
+- **Garmin:** type the day's total calories from Garmin Connect ("Save Garmin kcal") and it replaces the estimate, because Garmin already includes steps and workouts. **Automatic Garmin sync every 30 minutes:** total calories, steps (into the Steps goal) and workouts (into Sports as your own, marked ⌚, with Garmin's calories; a workout you already logged by hand is linked, not doubled). Each of you only needs to add a personal Garmin key once; see `GARMIN-SETUP.md`. In Health, **↻ Sync Garmin** fetches right away.
+- **Your eating budget changes every day:** budget = what you burned that day − your planned deficit (never below the safe minimum). The "How active are you?" setting is no longer needed. The 2-week chart shows each day's own budget.
+- Steps can be typed straight in Health; they go into the Steps goal.
+- Sports: each activity shows roughly how many kcal it burned for you.
+
 ## 1.9 – 12 Nov 2026
 - **Money is now called Finances.**
 - **Standing orders:** add payments that repeat every week, every 2 weeks, every month or every year (paying or receiving), with an optional end date. On each payment day the payment is added to your transactions automatically. When you import the bank statement, the real payment replaces the planned one (same amount within 4 days), so nothing is counted twice. The page shows the monthly total of standing orders and, for the current month, how much is still to go out. Mine or shared, like other finances.

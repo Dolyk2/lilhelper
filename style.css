@@ -470,3 +470,16 @@ button.chip{border:0;cursor:pointer;font:inherit;color:var(--ink)}
 /* standing orders form */
 .rl{display:flex;flex-direction:column;gap:.15rem;font-size:.75rem}
 .rl input{min-width:9rem}
+
+/* health: nutrients and calories burned */
+.macros{display:grid;gap:.45rem;margin:.7rem 0 .2rem;text-align:left}
+.mbh{display:flex;justify-content:space-between;font-size:.85rem}.mbh span:first-child{color:var(--muted)}
+.mtrack{height:.45rem;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.mtrack i{display:block;height:100%;border-radius:99px;transition:width .4s}
+.mp .mtrack i{background:var(--teal)}.mc .mtrack i{background:#ffc857}.mf .mtrack i{background:var(--accent)}
+.fmac{display:block;font-size:.75rem;margin-top:.05rem}
+.mtot{margin-top:.5rem;padding-top:.45rem;border-top:1px solid var(--line)}
+.macrow input{flex:1 1 5.5rem;min-width:0}
+.burn .chead b{font-size:1.1rem}
+.burn form{margin-top:.6rem}.burn form input{flex:1 1 8rem;min-width:0}
+.burn details{margin:.3rem 0}.burn .gar{font-size:.9rem;margin:.2rem 0 .4rem}
