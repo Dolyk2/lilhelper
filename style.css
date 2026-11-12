@@ -369,3 +369,94 @@ li.sport .ghost{margin-top:-.15rem}
 .flash{animation:flash 3s ease-out}
 @keyframes flash{0%,25%{box-shadow:0 0 0 3px var(--accent),0 0 24px var(--accent);background-color:var(--accent-soft)}100%{}}
 li.flash{border-radius:12px}
+
+/* ===== 1.6: phone "More" menu ===== */
+#nav .navmore,#nav .moresheet{display:none}
+@media (max-width:760px){
+  #nav>a:not(.pri){display:none}
+  #nav .navmore{display:flex;flex-direction:column;align-items:center;gap:.15rem;background:none;border:0;color:var(--muted);padding:.45rem .5rem;border-radius:14px;font:inherit;font-size:.7rem;cursor:pointer}
+  #nav .navmore svg{width:22px;height:22px;fill:currentColor;stroke:none}
+  #nav .navmore .ns{display:none}
+  #nav .navmore.on{color:var(--ink);background:var(--field)}
+  #nav .navmore.on .ns{display:block;white-space:nowrap}
+  #nav .moresheet:not([hidden]){display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;position:fixed;left:.8rem;right:.8rem;bottom:calc(5.2rem + env(safe-area-inset-bottom));padding:.8rem;border-radius:22px;background:rgba(30,20,50,.97);border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.55);z-index:60}
+  #nav .moresheet a{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.8rem .3rem;border-radius:14px;background:var(--field);color:var(--ink);font-size:.82rem}
+  #nav .moresheet a .nl{display:block!important}#nav .moresheet a .ns{display:none!important}
+  #nav .moresheet a.on{outline:2px solid var(--accent)}
+  body.moreopen main{filter:brightness(.6)}
+}
+
+/* ===== Weight page ===== */
+.daynav{display:flex;align-items:center;justify-content:center;gap:.6rem}
+.daynav strong{min-width:7.5rem;text-align:center;font-size:1.05rem}
+.daynav button[disabled]{opacity:.3}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem;align-items:start}
+.hgrid .card{margin:0}
+.hday{text-align:center}
+.hdonut{display:flex;justify-content:center;margin:.6rem 0}
+.hnums{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin:.4rem 0}
+.hnums b{display:block;font-size:1.25rem}.hnums small{color:var(--muted)}
+.hhint{font-size:.85rem;margin:.6rem 0 0}
+.fsearch{position:relative;margin-bottom:.55rem}
+.fsearch input{width:100%}
+.fhits{position:absolute;left:0;right:0;top:100%;z-index:30;display:flex;flex-direction:column;background:#24183a;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.45)}
+.fhits:empty{display:none}
+.fhits button{display:flex;flex-direction:column;align-items:flex-start;gap:.05rem;text-align:left;border:0;border-radius:0;background:none;padding:.55rem .8rem;color:var(--ink)}
+.fhits button:hover,.fhits button:focus{background:var(--field)}
+.fhits small{color:var(--muted);font-size:.78rem}
+.foodform .row input[type=number]{flex:1 1 5rem;min-width:0}
+.fhelp{font-size:.82rem;margin:.5rem 0 0}
+.offhits{display:flex;flex-direction:column;gap:.35rem;margin-top:.6rem}
+.hsub{margin:.9rem 0 .4rem;font:600 .78rem var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+button.chip{border:0;cursor:pointer;font:inherit;color:var(--ink)}
+.meal{padding:.45rem 0;border-bottom:1px solid var(--line)}.meal:last-child{border:0}
+.mealh{display:flex;justify-content:space-between;font-weight:600;margin-bottom:.15rem}
+.fooditem{display:flex;align-items:center;gap:.5rem;padding:.15rem 0 .15rem .4rem;font-size:.92rem}
+.fooditem .grow{flex:1;min-width:0}
+.fooditem .ghost{padding:.15rem .4rem}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.7rem;margin:.6rem 0}
+.pgrid label{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem;color:var(--muted)}
+.wchart{width:100%;height:auto;margin:.6rem 0;overflow:visible}
+.wchart .wline{fill:none;stroke:var(--wc);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.wchart circle{fill:var(--wc)}
+.wchart text{fill:var(--muted);font-size:10px;font-family:var(--body)}
+.wchart .gtarget{stroke:var(--muted);stroke-dasharray:4 4}
+.hchart rect{fill:var(--wc)}.hchart rect.over{fill:#ff8a6b}
+.wlog summary{cursor:pointer;margin-top:.5rem}
+
+/* ===== Money page ===== */
+.mtop{display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;margin-bottom:1rem}
+.mgrid{margin-bottom:1rem}.mgrid .big{font-size:clamp(1.6rem,3vw,2.3rem);white-space:nowrap}
+.mpos{color:#5fd38d}.mneg{color:#ff8a6b}.msmall{font-size:.8rem;margin-top:.2rem}
+.mcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem;margin-bottom:1rem}.mcols .card{margin:0}
+.mpie{position:relative;display:flex;justify-content:center;margin:.4rem 0 .8rem}
+.mpiec{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}.mpiec b{font-size:1.15rem}.mpiec small{color:var(--muted)}
+.mcats{display:flex;flex-direction:column;gap:.45rem}
+.mcat{display:grid;grid-template-columns:auto 1fr auto 2.6rem;align-items:center;gap:.5rem;font-size:.92rem}
+.mcat small{text-align:right}
+.mdot{width:.7rem;height:.7rem;border-radius:50%}
+.mlim{grid-column:2/-1;display:flex;flex-direction:column;gap:.15rem}
+.mlim i{display:block;height:6px;border-radius:99px;background:#5fd38d}
+.mlim.over i{background:#ff8a6b}.mlim small{text-align:left!important;color:var(--muted);font-size:.75rem}
+.mtrend{display:grid;grid-template-columns:repeat(6,1fr);gap:.5rem;height:150px;align-items:end;margin:.4rem 0}
+.mtm{display:flex;flex-direction:column;align-items:center;gap:.3rem;height:100%}
+.mtb{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:3px}
+.mtb i{width:40%;max-width:18px;border-radius:5px 5px 2px 2px;min-height:2px}
+.mtb .inc{background:#5fd38d}.mtb .out{background:#ff8a6b}
+.mtm small{color:var(--muted);font-size:.75rem}
+.txlist li{gap:.5rem}
+.txlist b{white-space:nowrap;min-width:5.5rem;text-align:right}
+.catsel{max-width:11rem;padding:.3rem .5rem;font-size:.82rem}
+@media (max-width:760px){
+  .mgrid{grid-template-columns:1fr 1fr}
+  .txlist li{flex-wrap:wrap;row-gap:.35rem}
+  .txlist li .grow{order:1;flex:1 1 0;min-width:0}
+  .txlist li b{order:2;min-width:0}
+  .txlist li .ghost{order:3}
+  .txlist li .catsel{order:4;flex:0 1 auto;max-width:100%}
+  .hnums b{font-size:1.1rem}
+}
+
+.foodform .row,.hgrid .row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.foodform .row select{flex:1 1 7rem}
+.hgrid .chips{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}

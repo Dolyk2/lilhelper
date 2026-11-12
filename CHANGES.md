@@ -2,6 +2,14 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.6 – 12 Nov 2026
+- **Notifications only when it concerns the other person:** something you add just for yourself (your to-do, note, event, sport, list or goal) no longer notifies the other phone. Things for them or for "Both" still do.
+- **New page: Weight.** Each of you sets up height, birthday, weight, activity and pace once; the app works out how much you burn and a daily calorie budget for steady weight loss (never below a safe minimum). Log food with a built-in list of common Czech foods (calories fill in from grams), online search of packaged products (Open Food Facts) or by typing kcal; foods you add are remembered and "Again?" re-adds recent ones in one tap. Weight log with a chart, goal line, kilos lost and roughly how many weeks to go; a 14-day calorie chart.
+- **New page: Money.** Import your bank's CSV statement (Czech banks and Revolut formats, old Windows encoding too) or add payments by hand. Payments are sorted into categories automatically and learn from your corrections. Shows income, spending, what's left, a category ring, monthly budgets per category, a savings goal and the last 6 months. Only date, amount and description are stored; account numbers are left out. Duplicates are skipped and the last import can be undone.
+- **Phone:** the bottom bar shows Home, Calendar, To-do, Weight and Money; everything else is under "•••".
+- **Security:** the database now only lets your two accounts in (before, any account created in your Supabase project could have read it).
+- Lighter syncing: the app checks whether anything changed before downloading everything.
+
 ## 1.5 – 10 Nov 2026
 - **Tapping a notification opens the new item:** the app goes straight to the right page (the right day in the calendar, the right list, filters reset) and the new item glows for a few seconds. Works whether the app was closed or already open. If the item was deleted in the meantime, you get a short message instead.
 - Several new things now show as separate notifications instead of replacing each other.

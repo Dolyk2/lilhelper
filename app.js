@@ -2,11 +2,12 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
-const APP_VERSION = '1.5', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
+const APP_VERSION = '1.6', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
-  lists: [{ id: 'l1', name: 'Shopping', items: [] }], milestones: []
+  lists: [{ id: 'l1', name: 'Shopping', items: [] }], milestones: [],
+  health: { profiles: {}, food: [], weights: [], myFoods: [], days: {} }, money: { tx: [], budgets: {}, saveGoal: 0, rules: [] }
 };
 const clone = o => typeof structuredClone === 'function' ? structuredClone(o) : JSON.parse(JSON.stringify(o));
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -250,12 +251,15 @@ const MODS = [
   { id: 'lists', title: 'Lists', render: lists },
   { id: 'goals', title: 'Goals', render: goals },
   { id: 'sports', title: 'Sports', render: sports },
+  { id: 'health', title: 'Weight', render: health },
+  { id: 'money', title: 'Money', render: moneyPage },
   { id: 'dates', title: 'Special dates', short: 'Dates', render: dates },
   { id: 'settings', title: 'Settings', render: settings }
 ];
 
 /* ---------- actions (buttons/checkboxes) and forms ---------- */
 const A = {
+  ...HEALTH_ACTS, ...MONEY_ACTS,
   edit: id => { editing = id; },
   cancel: () => { editing = null; },
   pick: id => { cal.sel = id; setTimeout(() => { if (innerWidth <= 1000) view.querySelector('.daypanel')?.scrollIntoView({ behavior: 'smooth' }); }, 60); },
@@ -282,6 +286,7 @@ const A = {
   grange: n => { goalDays = +n; },
   delSport: id => { S.sports = S.sports.filter(s => s.id !== id); },
   logout: () => { logout(); },
+  more: () => { moreOpen = !moreOpen; },
   notifyOn: () => { notifyOn(); },
   notifyOff: () => { notifyOff(); },
   notifyTest: () => { notifyTest(); },
@@ -294,6 +299,7 @@ const A = {
 };
 const curList = () => S.lists.find(l => l.id === listTab);
 const F = {
+  ...HEALTH_FORMS, ...MONEY_FORMS,
   addEvent: d => { const e = { id: uid(), date: d.date, title: d.title.trim(), time: d.time, who: +d.who, location: (d.location || '').trim() }; S.events.push(e); goTo(d.date); geocodeEvent(e); },
   addTask: d => S.tasks.push({ id: uid(), text: d.text.trim(), owner: +d.owner, due: d.due, done: false }),
   addNote: d => S.notes.push({ id: uid(), title: d.title.trim(), body: d.body.trim(), owner: +d.owner, pin: false, at: Date.now() }),
@@ -323,6 +329,8 @@ const ICONS = {
   tasks: '<path d="M4 12l5 5L20 6"/>',
   notes: '<path d="M5 3h10l4 4v14H5z"/><path d="M9 12h6M9 16h6"/>',
   lists: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
+  health: '<path d="M4 20h16l-2-14H6z"/><path d="M9 10a3 3 0 0 1 6 0M12 10l1.5-2"/>',
+  money: '<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 15h2"/>',
   dates: '<path d="M12 21s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.7-8 11-8 11z"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'
 };
@@ -406,6 +414,10 @@ async function doPush() {
 }
 async function pull(first) {
   if (dirty) return push(); // local changes first; push also brings in the partner's changes
+  if (!first && base.at) { // cheap check first: download everything only if something changed
+    const h = await sb.from('shared_data').select('updated_at').eq('id', 1).maybeSingle();
+    if (!h.error && h.data?.updated_at === base.at) { syncInfo = 'Last checked online at ' + stamp(); return; }
+  }
   const { data, error } = await sb.from('shared_data').select('data,updated_at').eq('id', 1).maybeSingle();
   if (error || !data) { if (first) toast('Could not load online data: ' + (error ? error.message : 'the shared row is missing')); return; }
   syncInfo = 'Last checked online at ' + stamp();
@@ -573,22 +585,26 @@ async function notifyTest() {
   catch (e) { toast('Test failed: ' + (e.message || e) + '. Is the "notify" function set up in Supabase?'); }
 }
 /* What did this device add compared with the server copy? Used to tell the partner. */
-const KINDS = [['events', 'Calendar', x => x.title, 'calendar'], ['tasks', 'To-do', x => x.text, 'tasks'], ['notes', 'Notes', x => x.title || x.body, 'notes'], ['milestones', 'Special dates', x => x.title, 'dates'],
-  ['sports', 'Sports', x => x.type, 'sports'], ['goals', 'Goals', x => x.name || x.text, 'goals'], ['songs', 'Music', () => 'a song', 'home'], ['photos', 'Memories', () => 'a photo', 'calendar']];
+/* [collection, label, text, page, whose it is (0, 1 or 2 = both)] */
+const KINDS = [['events', 'Calendar', x => x.title, 'calendar', x => x.who], ['tasks', 'To-do', x => x.text, 'tasks', x => x.owner], ['notes', 'Notes', x => x.title || x.body, 'notes', x => x.owner],
+  ['milestones', 'Special dates', x => x.title, 'dates', () => 2], ['sports', 'Sports', x => x.type, 'sports', x => x.who], ['goals', 'Goals', x => x.name || x.text, 'goals', x => x.owner],
+  ['songs', 'Music', () => 'a song', 'home', () => 2], ['photos', 'Memories', () => 'a photo', 'calendar', () => 2]];
 function addedItems(before, after) {
   const out = [], ids = a => new Set((Array.isArray(a) ? a : []).map(x => x.id));
-  for (const [k, label, txt, page] of KINDS) { const old = ids(before?.[k]); (after[k] || []).filter(x => !old.has(x.id)).forEach(x => out.push({ where: label, what: String(txt(x) || '').slice(0, 80), link: `#${page}/${x.id}` })); }
+  for (const [k, label, txt, page, whose] of KINDS) { const old = ids(before?.[k]); (after[k] || []).filter(x => !old.has(x.id)).forEach(x => out.push({ where: label, what: String(txt(x) || '').slice(0, 80), link: `#${page}/${x.id}`, own: +(whose(x) ?? 2) })); }
   const oldLists = new Map((before?.lists || []).map(l => [l.id, ids(l.items)]));
   for (const l of after.lists || []) {
     const old = oldLists.get(l.id);
-    if (!old) out.push({ where: 'Lists', what: `new list "${l.name}"`, link: `#lists/${l.id}` });
-    (l.items || []).filter(i => old && !old.has(i.id)).forEach(i => out.push({ where: l.name, what: i.text, link: `#lists/${l.id}/${i.id}` }));
+    const own = +(l.owner ?? 2);
+    if (!old) out.push({ where: 'Lists', what: `new list "${l.name}"`, link: `#lists/${l.id}`, own });
+    (l.items || []).filter(i => old && !old.has(i.id)).forEach(i => out.push({ where: l.name, what: i.text, link: `#lists/${l.id}/${i.id}`, own }));
   }
   return out;
 }
 function tellPartner(before, after) {
   if (!pushReady() || !before || !Object.keys(before).length) return;
-  const items = addedItems(before, after);
+  /* only things that concern the partner: theirs or shared ("Both"), never what you added just for yourself */
+  const items = addedItems(before, after).filter(x => me() === null || x.own === 2 || x.own !== me());
   if (items.length) callNotify({ by: me(), items: items.slice(0, 10), link: items[0].link, endpoint: pushSub?.endpoint }).catch(() => { /* function not set up: no notification */ });
 }
 const whoOpts = () => [0, 1].map(i => `<option value="${i}" ${me() === i ? 'selected' : ''}>${esc(S.names[i])}</option>`).join('');
@@ -810,7 +826,8 @@ function sports() {
 
 /* ---------- shell ---------- */
 const view = document.getElementById('view'), nav = document.getElementById('nav');
-let lastPage = null;
+let lastPage = null, moreOpen = false;
+const PHONE_MAIN = ['home', 'calendar', 'tasks', 'health', 'money']; // shown in the phone tab bar; the rest sit under "More"
 /* Before showing a page from a link: make sure the item is visible (right day, right list, no filter). */
 function focusPrep(page, a, b) {
   if (page === 'calendar') { const x = S.events.find(e => e.id === a) || S.photos.find(p => p.id === a); if (x) goTo(x.date); }
@@ -845,14 +862,18 @@ navigator.serviceWorker?.addEventListener('message', async e => {
 function render() {
   document.body.classList.toggle('locked', !authed);
   if (!authed) { nav.innerHTML = ''; view.innerHTML = loginView(); return; }
-  if (migrateGoals()) save();
+  if (migrateGoals() | compactFood()) save();
   const [page, a, b] = location.hash.slice(1).split('/');
   const m = MODS.find(m => m.id === page) || MODS[0];
   const hl = a ? focusPrep(m.id, a, b) : null;
-  nav.innerHTML = MODS.map(x => `<a href="#${x.id}" class="${x.id === m.id ? 'on' : ''}" aria-label="${x.title}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[x.id] || ''}</svg><span class="nl">${x.title}</span><span class="ns">${x.short || x.title}</span></a>`).join('');
+  const link = x => `<a href="#${x.id}" class="${x.id === m.id ? 'on' : ''}${PHONE_MAIN.includes(x.id) ? ' pri' : ''}" aria-label="${x.title}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[x.id] || ''}</svg><span class="nl">${x.title}</span><span class="ns">${x.short || x.title}</span></a>`;
+  const extra = !PHONE_MAIN.includes(m.id);
+  nav.innerHTML = MODS.map(link).join('') + `<button class="navmore ${extra ? 'on' : ''}" data-act="more" aria-label="More pages" aria-expanded="${moreOpen}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span class="ns">${extra ? (m.short || m.title) : 'More'}</span></button>`
+    + `<div class="moresheet" ${moreOpen ? '' : 'hidden'}>${MODS.filter(x => !PHONE_MAIN.includes(x.id)).map(link).join('')}</div>`;
+  document.body.classList.toggle('moreopen', moreOpen);
   document.getElementById('brand').textContent = S.names.join(' + ');
   const y = m.id === lastPage ? view.scrollTop : 0; // keep position on the same page, start at the top on a new one
-  if (m.id !== lastPage) editing = null;
+  if (m.id !== lastPage) { editing = null; moreOpen = false; document.body.classList.remove('moreopen'); nav.querySelector('.moresheet')?.setAttribute('hidden', ''); }
   lastPage = m.id;
   view.innerHTML = m.render();
   view.classList.toggle('onehome', m.id === 'home');
@@ -865,7 +886,7 @@ function render() {
   hydrate(); fillWeather();
   clearInterval(rotTimer); if (m.id === 'home' && sb && S.photos.length > 1) rotTimer = setInterval(rotatePhoto, 9000);
 }
-const UI_ONLY = new Set(['pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'twho', 'grange', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
+const UI_ONLY = new Set(['pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'twho', 'grange', 'hwho', 'hday', 'hedit', 'offPick', 'mmonth', 'mwho', 'mall', 'mbudgets', 'more', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
 document.addEventListener('submit', e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
   if (f.dataset.form === 'login') { e.preventDefault(); login(new FormData(f)); return; }
@@ -876,7 +897,8 @@ document.addEventListener('submit', e => {
 });
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b || b.type === 'checkbox' || !A[b.dataset.act]) return;
-  const a = b.dataset.act; A[a](b.dataset.id); if (!UI_ONLY.has(a)) save(); render();
+  const a = b.dataset.act; if (A[a](b.dataset.id) === 'keep') return; // 'keep': the action updated the page itself
+  if (!UI_ONLY.has(a)) save(); render();
 });
 document.addEventListener('change', e => {
   const b = e.target.closest('[data-act]');
