@@ -1,4 +1,4 @@
-/* ===== Weight: calorie budget, food diary and weight trend (one per person) =====
+/* ===== Health: calorie budget, food diary and weight trend (one per person) =====
    Loaded before app.js; only declares things, nothing runs here until the page is opened. */
 
 /* Common foods: [name (Czech · English for searching), kcal per 100 g, usual portion in g, portion name] */
@@ -33,7 +33,7 @@ const PACE = [[0, 'Keep my weight'], [0.25, 'Lose 0.25 kg a week (easy)'], [0.5,
 let hWho = null, hDay = null, hEdit = false, foodHits = [], offHits = null;
 
 const H = () => (S.health ||= { profiles: {}, food: [], weights: [], myFoods: [], days: {} });
-const hPerson = () => hWho ?? me() ?? 0;
+const hPerson = () => I(); // everyone sees only their own food and weight
 const latestWeight = w => H().weights.filter(x => x.who === w).sort((a, b) => b.date.localeCompare(a.date))[0];
 const ageOf = born => { if (!born) return 30; const b = parse(born), t = new Date(); return t.getFullYear() - b.getFullYear() - (t < new Date(t.getFullYear(), b.getMonth(), b.getDate()) ? 1 : 0); };
 /* Daily calorie numbers from the profile (Mifflin–St Jeor formula, the one dietitians use). */
@@ -62,8 +62,7 @@ function compactFood() {
 
 function health() {
   const w = hPerson(), p = H().profiles[w], b = budgetOf(w), day = hDay || iso(new Date()), t = iso(new Date());
-  const who = [0, 1].map(i => `<button class="${w === i ? 'on' : ''}" data-act="hwho" data-id="${i}" data-w="${i}">${esc(S.names[i])}</button>`).join('');
-  const head = `<h2>Weight</h2><div class="tabs">${who}</div>`;
+  const head = `<div class="homehead"><h2>Health</h2><span class="muted">${esc(S.names[w])} · your own food and weight</span></div>`;
   if (!b || hEdit) return head + profileForm(w, p);
   const food = H().food.filter(f => f.who === w && f.date === day), eaten = food.reduce((a, f) => a + f.kcal, 0), left = b.budget - eaten;
   const dayNav = `<div class="daynav"><button class="ghost" data-act="hday" data-id="-1" aria-label="Previous day">‹</button><strong>${day === t ? 'Today' : fmtShort(day)}</strong><button class="ghost" data-act="hday" data-id="1" aria-label="Next day" ${day >= t ? 'disabled' : ''}>›</button></div>`;

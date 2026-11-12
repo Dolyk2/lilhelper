@@ -2,6 +2,12 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.8 – 12 Nov 2026
+- **Personal things stay personal:** in To-do, Notes, Money and Health you see only your own items and the shared ("Both") ones; your partner's personal items are hidden from you, and yours from them. The app knows who you are from your login. Filters: All / Only mine / Shared. You can still add a to-do or note for your partner: it goes to their list (you get a short message), and they're notified.
+- Home shows only your own and shared to-dos.
+- **Weight is now called Health**, with a new icon. It always shows your own food and weight.
+- New to-dos and notes are "mine" by default.
+
 ## 1.7 – 12 Nov 2026
 - **Forgot password?** on the login screen: type your email, open the link from the email, choose a new password, and you're logged in. Expired or already-used links show a clear message.
 - **Settings → Account → Change password** while logged in.

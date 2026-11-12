@@ -27,6 +27,7 @@ const AUTO = {
 };
 let mMonth = null, mWho = 'all', mShowAll = false, mEditBudgets = false;
 const M = () => (S.money ||= { tx: [], budgets: {}, saveGoal: 0, rules: [] });
+const mineOpts = () => `<option value="${I()}">Mine</option><option value="2">Shared</option>`;
 const money = v => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(v);
 const monthKey = (d = new Date()) => iso(d).slice(0, 7);
 const monthName = k => new Date(+k.slice(0, 4), +k.slice(5) - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -40,7 +41,7 @@ function guessCat(desc, amount) {
   for (const [cat, words] of Object.entries(AUTO)) if (words.split('|').some(w => n.includes(w))) return cat;
   return 'other';
 }
-const inMonth = (k, who) => M().tx.filter(t => t.date.startsWith(k) && (who === 'all' || t.who == who || t.who == 2));
+const inMonth = (k, who) => M().tx.filter(t => t.date.startsWith(k) && visPick(who, t.who)); // your own + shared accounts; never your partner's personal ones
 function totals(txs) {
   const income = txs.filter(t => t.amount > 0 && t.cat !== 'transfer').reduce((a, t) => a + t.amount, 0);
   const spent = -txs.filter(t => t.amount < 0 && !['transfer', 'savings'].includes(t.cat)).reduce((a, t) => a + t.amount, 0);
@@ -57,7 +58,6 @@ function pie(parts, size = 170) {
 
 function moneyPage() {
   const k = mMonth || monthKey(), txs = inMonth(k, mWho), T = totals(txs), prev = totals(inMonth(shiftMonth(k, -1), mWho));
-  const tab = (id, txt, w) => `<button class="${mWho === id ? 'on' : ''}" data-act="mwho" data-id="${id}"${w != null ? ` data-w="${w}"` : ''}>${txt}</button>`;
   const cats = Object.entries(T.byCat).sort((a, b) => b[1] - a[1]);
   const goal = +M().saveGoal || 0, keep = T.left;
   const months = Array.from({ length: 6 }, (_, i) => shiftMonth(k, i - 5)), mt = months.map(m => totals(inMonth(m, mWho))), mmax = Math.max(1, ...mt.flatMap(x => [x.income, x.spent]));
@@ -66,7 +66,7 @@ function moneyPage() {
   const lastImport = M().tx.reduce((a, t) => t.imp && (!a || t.imp > a) ? t.imp : a, null);
   return `<h2>Money</h2>
   <div class="mtop"><div class="daynav"><button class="ghost" data-act="mmonth" data-id="-1" aria-label="Previous month">‹</button><strong>${monthName(k)}</strong><button class="ghost" data-act="mmonth" data-id="1" aria-label="Next month" ${k >= monthKey() ? 'disabled' : ''}>›</button></div>
-    <div class="tabs" style="margin:0">${tab('all', 'Together')}${tab('0', esc(S.names[0]), 0)}${tab('1', esc(S.names[1]), 1)}</div></div>
+    <div class="tabs" style="margin:0">${visTabs(mWho, 'mwho')}</div></div>
   <div class="grid mgrid">
     <div class="card"><div class="muted">Income</div><div class="big mpos">${money(T.income)}</div></div>
     <div class="card"><div class="muted">Spent</div><div class="big">${money(T.spent)}</div>${prev.spent ? `<div class="muted msmall">${T.spent > prev.spent ? '▲' : '▼'} ${money(Math.abs(T.spent - prev.spent))} vs last month</div>` : ''}</div>
@@ -85,13 +85,13 @@ function moneyPage() {
   <div class="card"><div class="chead"><h3>Transactions</h3><span class="muted">${list.length} this month</span></div>
     <form class="row" data-form="addTx"><select name="type" aria-label="Type"><option value="out">Spent</option><option value="in">Received</option></select><input type="number" name="amount" min="0.01" step="any" placeholder="Kč" required aria-label="Amount" style="max-width:8rem">
       <input type="text" name="desc" placeholder="What for? e.g. Lidl, rent" required aria-label="Description"><select name="cat" aria-label="Category"><option value="">auto category</option>${CATS.map(([c, n, i]) => `<option value="${c}">${i} ${n}</option>`).join('')}</select>
-      <input type="date" name="date" value="${k === monthKey() ? iso(new Date()) : k + '-01'}" aria-label="Date"><select name="who" aria-label="Whose">${ownerOpts(me() ?? 2)}</select><button class="primary">Add</button></form>
-    <ul class="items txlist">${shown.map(t => `<li data-w="${t.who}" data-hl="${t.id}"><div class="grow"><div class="evt">${esc(t.desc)}</div><div class="evm">${fmtShort(t.date)}${t.who != 2 ? ' · ' + esc(owner(t.who)) : ''}</div></div>${catSel(t)}<b class="${t.amount > 0 ? 'mpos' : ''}">${t.amount > 0 ? '+' : ''}${money(t.amount)}</b><button class="ghost" data-act="delTx" data-id="${t.id}" aria-label="Delete">✕</button></li>`).join('') || '<li class="muted">Nothing yet.</li>'}</ul>
+      <input type="date" name="date" value="${k === monthKey() ? iso(new Date()) : k + '-01'}" aria-label="Date"><select name="who" aria-label="Whose">${mineOpts()}</select><button class="primary">Add</button></form>
+    <ul class="items txlist">${shown.map(t => `<li data-w="${t.who}" data-hl="${t.id}"><div class="grow"><div class="evt">${esc(t.desc)}</div><div class="evm">${fmtShort(t.date)}${t.who == 2 ? ' · shared' : ''}</div></div>${catSel(t)}<b class="${t.amount > 0 ? 'mpos' : ''}">${t.amount > 0 ? '+' : ''}${money(t.amount)}</b><button class="ghost" data-act="delTx" data-id="${t.id}" aria-label="Delete">✕</button></li>`).join('') || '<li class="muted">Nothing yet.</li>'}</ul>
     ${list.length > 25 ? `<button class="ghost" data-act="mall">${mShowAll ? 'Show fewer' : `Show all ${list.length}`}</button>` : ''}</div>
   <div class="mcols">
     <div class="card"><h3>Import bank statement (CSV)</h3>
       <p class="muted">In your bank's internet banking, open the account history, pick the month and export it as <b>CSV</b>. Then choose the file here. Shops are sorted into categories automatically; when you change a category, the app remembers it for that shop.</p>
-      <div class="row"><label class="muted">Whose account? <select id="impWho">${ownerOpts(me() ?? 2)}</select></label><button class="primary" type="button" onclick="document.getElementById('csvfile').click()">Choose CSV file</button><input type="file" id="csvfile" accept=".csv,text/csv" hidden></div>
+      <div class="row"><label class="muted">Whose account? <select id="impWho">${mineOpts()}</select></label><button class="primary" type="button" onclick="document.getElementById('csvfile').click()">Choose CSV file</button><input type="file" id="csvfile" accept=".csv,text/csv" hidden></div>
       <p class="muted msmall">Only the date, amount and description are saved. Account numbers are left out. Payments already imported are skipped.</p>
       ${lastImport ? `<button class="ghost" data-act="undoImport" data-id="${lastImport}">Undo last import</button>` : ''}</div>
     <div class="card"><div class="chead"><h3>Monthly budgets</h3><button class="ghost" data-act="mbudgets">${mEditBudgets ? 'Close' : 'Edit'}</button></div>

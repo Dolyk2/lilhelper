@@ -2,7 +2,7 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
-const APP_VERSION = '1.7', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
+const APP_VERSION = '1.8', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
@@ -37,6 +37,14 @@ const fmt = s => parse(s).toLocaleDateString(undefined, { weekday: 'short', day:
 /* shorter date: no year when it is this year */
 const fmtShort = s => { const d = parse(s); return d.toLocaleDateString(undefined, d.getFullYear() === new Date().getFullYear() ? { weekday: 'short', day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' }); };
 const owner = i => i == 2 ? 'Both' : S.names[i];
+/* Which of the two names belongs to which login (Supabase account id → 0 = first name, 1 = second). */
+const USER_IDX = { '83f1d5c3-def9-4184-b164-82e8344fae1d': 0, 'de5fe1c9-66ad-4403-9218-100052621177': 1 };
+let myIdx = null;
+const I = () => myIdx ?? (typeof me === 'function' ? me() : null) ?? 0; // the person using the app right now
+const mine = o => +(o ?? 2) === 2 || +o === I(); // personal things are shown only to their owner; "Both" to both
+const visTabs = (cur, act, count) => [['all', 'All'], ['mine', 'Only mine'], ['shared', 'Shared']].map(([id, txt]) => `<button class="${cur === id ? 'on' : ''}" data-act="${act}" data-id="${id}"${id === 'mine' ? ` data-w="${I()}"` : id === 'shared' ? ' data-w="2"' : ''}>${txt}${count ? ` <small>${count(id)}</small>` : ''}</button>`).join('');
+const visPick = (cur, o) => cur === 'mine' ? +o === I() : cur === 'shared' ? +(o ?? 2) === 2 : mine(o);
+const assignedNote = o => { if (+o !== 2 && +o !== I()) toast(`Added for ${S.names[+o]}. It's in their list, not yours.`); };
 const ownerOpts = (sel = 2) => [0, 1, 2].map(i => `<option value="${i}" ${i == sel ? 'selected' : ''}>${esc(owner(i))}</option>`).join('');
 /* Same day and month in a given year; 29 Feb becomes 28 Feb in non-leap years. */
 const inYear = (d, y) => { const o = new Date(y, d.getMonth(), d.getDate()); if (o.getMonth() !== d.getMonth()) o.setDate(0); return o; };
@@ -74,7 +82,7 @@ function home() {
   const byTime = (a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''));
   const when = k => { const n = Math.round((parse(k) - t0) / 864e5); return n === 1 ? 'Tomorrow' : n < 7 ? parse(k).toLocaleDateString(undefined, { weekday: 'long' }) : fmtShort(k); };
   const coming = S.events.filter(e => e.date > t).sort(byTime).slice(0, 5);
-  const open = S.tasks.filter(x => !x.done).sort((a, b) => (a.due || '9').localeCompare(b.due || '9')).slice(0, 6);
+  const open = S.tasks.filter(x => !x.done && mine(x.owner)).sort((a, b) => (a.due || '9').localeCompare(b.due || '9')).slice(0, 6);
   const ms = S.milestones.map(m => ({ ...m, n: daysTo(m) })).filter(m => m.n >= 0).sort((a, b) => a.n - b.n).slice(0, 4);
   const lst = S.lists.slice(0, 4).map(l => ({ name: l.name, owner: l.owner ?? 2, open: l.items.filter(i => !i.done) }));
   /* music: your pinned playlist first; Shuffle goes through the others */
@@ -168,36 +176,34 @@ function tasks() {
     : `<li data-w="${x.owner}" data-hl="${x.id}" class="${x.done ? 'done' : ''}"><input type="checkbox" ${x.done ? 'checked' : ''} data-act="toggleTask" data-id="${x.id}" aria-label="Done">
     <span class="grow">${esc(x.text)} ${x.due ? `<span class="muted">due ${fmt(x.due)}</span>` : ''}</span>${overdue(x) ? '<span class="tag warn">overdue</span>' : ''}${editBtn(x.id)}<button class="ghost" data-act="delTask" data-id="${x.id}" aria-label="Delete to-do">✕</button></li>`;
   const byDue = (a, b) => (a.done - b.done) || (a.due || '9').localeCompare(b.due || '9');
-  /* one coloured group per person; a person's filter also shows the shared ("Both") to-dos */
-  const ws = taskWho === 'all' ? [0, 1, 2] : [+taskWho, 2];
+  /* you see your own to-dos and the shared ones; your partner's personal ones stay theirs */
+  const ws = taskWho === 'mine' ? [I()] : taskWho === 'shared' ? [2] : [I(), 2];
   const groups = ws.map(w => [w, S.tasks.filter(x => +x.owner === w).sort(byDue)]).filter(([, l]) => l.length);
-  const tab = (id, txt, w) => `<button class="${taskWho === id ? 'on' : ''}" data-act="twho" data-id="${id}"${w != null ? ` data-w="${w}"` : ''}>${txt}</button>`;
-  const count = w => S.tasks.filter(x => !x.done && (w === 'all' || +x.owner === +w || +x.owner === 2)).length;
+  const count = id => S.tasks.filter(x => !x.done && visPick(id, x.owner)).length;
   return `<h2>To-do</h2>
   <form class="card row" data-form="addTask"><h3 style="flex-basis:100%;margin:0">New to-do</h3>
     <input type="text" name="text" placeholder="What needs doing?" required aria-label="To-do">
-    <select name="owner" aria-label="For whom">${ownerOpts(2)}</select>
+    <select name="owner" aria-label="For whom">${ownerOpts(I())}</select>
     <input type="date" name="due" aria-label="Due date">
     <button class="primary">Add to-do</button></form>
-  <div class="tabs">${tab('all', `Everyone <small>${count('all')}</small>`)}${tab('0', `${esc(S.names[0])} <small>${count(0)}</small>`, 0)}${tab('1', `${esc(S.names[1])} <small>${count(1)}</small>`, 1)}</div>
-  ${groups.map(([w, l]) => `<div class="card tgroup" data-w="${w}"><div class="chead"><h3><i class="wdot"></i>${esc(owner(w))}</h3><span class="muted">${l.filter(x => !x.done).length} open${l.some(x => x.done) ? `, ${l.filter(x => x.done).length} done` : ''}</span></div>
+  <div class="tabs">${visTabs(taskWho, 'twho', count)}</div>
+  ${groups.map(([w, l]) => `<div class="card tgroup" data-w="${w}"><div class="chead"><h3><i class="wdot"></i>${w === 2 ? 'Shared' : 'Mine'}</h3><span class="muted">${l.filter(x => !x.done).length} open${l.some(x => x.done) ? `, ${l.filter(x => x.done).length} done` : ''}</span></div>
     <ul class="items">${l.map(li).join('')}</ul></div>`).join('') || '<div class="card"><p class="muted">Nothing here yet.</p></div>'}
   ${S.tasks.some(x => x.done) ? '<p><button data-act="clearDone">Clear all done</button></p>' : ''}`;
 }
 
 function notes() {
   const own = n => n.owner ?? 2; // notes made before owners existed belong to both
-  const sorted = [...S.notes].filter(n => noteWho === 'all' || own(n) == noteWho || own(n) == 2).sort((a, b) => (b.pin - a.pin) || b.at - a.at);
+  const sorted = [...S.notes].filter(n => visPick(noteWho, own(n))).sort((a, b) => (b.pin - a.pin) || b.at - a.at);
   const card = n => editing === n.id
     ? `<form class="card editing" data-form="saveNote">${hid(n.id)}<div class="row" style="display:flex;gap:.55rem;margin-bottom:.5rem"><input type="text" name="title" value="${esc(n.title)}" placeholder="Title (optional)" aria-label="Title"><select name="owner" aria-label="Whose note">${ownerOpts(own(n))}</select></div><textarea name="body" required aria-label="Note">${esc(n.body)}</textarea><p>${formBtns}</p></form>`
     : `<article class="card note ${n.pin ? 'pin' : ''}" data-w="${own(n)}" data-hl="${n.id}"><div class="chead"><h3>${n.pin ? '📌 ' : ''}${esc(n.title || 'Untitled')}</h3><span class="tag who">${esc(owner(own(n)))}</span></div><div>${esc(n.body)}</div>
     <p class="muted">${new Date(n.at).toLocaleDateString()} ${editBtn(n.id)}<button class="ghost" data-act="pinNote" data-id="${n.id}">${n.pin ? 'Unpin' : 'Pin'}</button><button class="ghost" data-act="delNote" data-id="${n.id}">Delete</button></p></article>`;
-  const tab = (id, txt) => `<button class="${noteWho === id ? 'on' : ''}" data-act="nwho" data-id="${id}">${txt}</button>`;
   return `<h2>Notes</h2>
-  <form class="card" data-form="addNote"><div style="display:flex;gap:.55rem;margin-bottom:.5rem;flex-wrap:wrap"><input type="text" name="title" placeholder="Title (optional)" aria-label="Title"><select name="owner" aria-label="Whose note">${ownerOpts(2)}</select></div>
+  <form class="card" data-form="addNote"><div style="display:flex;gap:.55rem;margin-bottom:.5rem;flex-wrap:wrap"><input type="text" name="title" placeholder="Title (optional)" aria-label="Title"><select name="owner" aria-label="Whose note">${ownerOpts(I())}</select></div>
     <textarea name="body" placeholder="Gift ideas, things she said she likes, places to try…" required aria-label="Note"></textarea><p><button class="primary">Save note</button></p></form>
-  ${S.notes.length ? `<div class="tabs">${tab('all', 'Everyone')}${tab('0', esc(S.names[0]))}${tab('1', esc(S.names[1]))}</div>` : ''}
-  ${sorted.map(card).join('') || (S.notes.length ? '<p class="muted">No notes for this person.</p>' : '')}`;
+  ${S.notes.length ? `<div class="tabs">${visTabs(noteWho, 'nwho')}</div>` : ''}
+  ${sorted.map(card).join('') || (S.notes.length ? '<p class="muted">Nothing here.</p>' : '')}`;
 }
 
 function lists() {
@@ -252,7 +258,7 @@ const MODS = [
   { id: 'lists', title: 'Lists', render: lists },
   { id: 'goals', title: 'Goals', render: goals },
   { id: 'sports', title: 'Sports', render: sports },
-  { id: 'health', title: 'Weight', render: health },
+  { id: 'health', title: 'Health', render: health },
   { id: 'money', title: 'Money', render: moneyPage },
   { id: 'dates', title: 'Special dates', short: 'Dates', render: dates },
   { id: 'settings', title: 'Settings', render: settings }
@@ -331,7 +337,7 @@ const ICONS = {
   tasks: '<path d="M4 12l5 5L20 6"/>',
   notes: '<path d="M5 3h10l4 4v14H5z"/><path d="M9 12h6M9 16h6"/>',
   lists: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
-  health: '<path d="M4 20h16l-2-14H6z"/><path d="M9 10a3 3 0 0 1 6 0M12 10l1.5-2"/>',
+  health: '<path d="M3 12h4l2-5 4 10 2-5h6"/>',
   money: '<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 15h2"/>',
   dates: '<path d="M12 21s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.7-8 11-8 11z"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'
@@ -440,7 +446,13 @@ async function login(fd) {
   const msg = document.getElementById('loginmsg'); msg.textContent = 'Signing in…';
   const { error } = await sb.auth.signInWithPassword({ email: fd.get('email'), password: fd.get('password') });
   if (error) { msg.textContent = /invalid/i.test(error.message) ? 'Wrong email or password.' : 'Could not log in: ' + error.message; return; }
-  authed = true; await pull(true); render();
+  authed = true; setMe((await sb.auth.getSession()).data.session); await pull(true); render();
+}
+/* who is logged in → which name; also used for notifications on this device if not chosen yet */
+function setMe(session) {
+  const i = USER_IDX[session?.user?.id];
+  myIdx = i ?? null;
+  if (i != null && typeof ME_KEY !== 'undefined' && me() === null) ls.set(ME_KEY, i);
 }
 async function logout() {
   if (dirty) await push();
@@ -491,6 +503,7 @@ async function boot() {
   if (sb) {
     const { data } = await sb.auth.getSession();
     authed = !!data.session;
+    setMe(data.session);
     if (authed) await pull(true);
     await checkPush();
     setInterval(() => { if (authed && !document.hidden) pull(); }, 15000);
@@ -946,7 +959,8 @@ document.addEventListener('submit', e => {
     return;
   }
   e.preventDefault();
-  try { F[f.dataset.form](Object.fromEntries(new FormData(f))); }
+  const fd = Object.fromEntries(new FormData(f));
+  try { F[f.dataset.form](fd); if (['addTask', 'addNote', 'saveTask', 'saveNote'].includes(f.dataset.form) && fd.owner != null) assignedNote(fd.owner); }
   catch (err) { console.error(err); toast('That item was changed or removed on the other device.'); }
   editing = null; save(); render();
 });
