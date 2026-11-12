@@ -22,8 +22,9 @@ const pragueDay = (daysAgo = 0) => new Date(Date.now() - daysAgo * 864e5).toLoca
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
 
-/* Garmin's field names vary between endpoints and versions (flat "totalSteps" or nested
-   "movement.steps"), so numbers are found by the end of their path. */
+/* Numbers are found by their path. Garmin's personal API (Nov 2026) sends e.g.
+   calories.burnedTotal / burnedActive / burnedResting and movement.steps.value;
+   older names (totalKilocalories, totalSteps) are kept as fallbacks. */
 function flat(o: unknown, pre = '', out: Record<string, number> = {}) {
   if (isObj(o)) for (const [k, v] of Object.entries(o)) {
     const p = pre ? `${pre}.${k}` : k;
@@ -80,10 +81,10 @@ async function fetchPerson(key: string) {
     const f = flat(s);
     if (!sample.length) sample = Object.keys(f).slice(0, 60);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
-    const active = pick(f, /^activeKilocalories$/i, /(^|\.)active(Kilo)?calories$/i, /calories?\.active$/i);
-    const bmr = pick(f, /^bmrKilocalories$/i, /(^|\.)bmr(Kilo)?calories$/i, /calories?\.(bmr|resting)$/i);
-    const total = pick(f, /^totalKilocalories$/i, /(^|\.)total(Kilo)?calories$/i, /calories?\.total$/i) ?? (active !== null && bmr !== null ? active + bmr : null);
-    const steps = pick(f, /^totalSteps$/i, /^movement\.(total)?steps$/i, /(^|\.)(total)?steps$/i);
+    const active = pick(f, /^calories\.burnedActive$/i, /^activeKilocalories$/i, /(^|\.)active(Kilo)?calories$/i, /calories?\.active$/i);
+    const bmr = pick(f, /^calories\.burnedResting$/i, /^bmrKilocalories$/i, /(^|\.)bmr(Kilo)?calories$/i, /calories?\.(bmr|resting)$/i);
+    const total = pick(f, /^calories\.burnedTotal$/i, /^totalKilocalories$/i, /(^|\.)total(Kilo)?calories$/i, /calories?\.total$/i) ?? (active !== null && bmr !== null ? active + bmr : null);
+    const steps = pick(f, /^movement\.steps\.value$/i, /^totalSteps$/i, /^movement\.(total)?steps$/i, /(^|\.)(total)?steps$/i);
     days.push({ day, kcal: total, active, steps });
   }
   const acts: Act[] = [];
