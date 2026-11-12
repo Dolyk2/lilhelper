@@ -2,7 +2,7 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
-const APP_VERSION = '1.6', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
+const APP_VERSION = '1.7', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
@@ -236,7 +236,8 @@ function settings() {
   ${sb ? `<div class="card"><h3>Phone calendar</h3><p class="muted">Keep your secret code here instead of a note. Both of you can see it after logging in.</p>
     <form class="row" data-form="saveToken"><input type="text" name="token" value="${esc(calCode(S.calToken))}" placeholder="Calendar code (CAL_TOKEN)" aria-label="Calendar code"><button class="primary">Save</button></form>
     ${S.calToken ? `<p class="muted" style="word-break:break-all">${esc(calLink())}</p><button onclick="copyText(this.dataset.t)" data-t="${esc(calLink())}">Copy link</button> <button onclick="copyText(this.dataset.t)" data-t="${esc(calLink().replace('https://', 'webcal://'))}">Copy webcal link</button>` : ''}</div>` : ''}
-  ${sb ? `<div class="card"><h3>Account</h3><p class="muted">You are logged in. Changes reach your partner within about 15 seconds.</p><p class="muted" role="status">${esc(syncInfo)}${dirty ? ' · some changes are not saved online yet' : ''}</p><button onclick="syncNow()">Sync now</button> <button data-act="logout">Log out</button></div>` : ''}
+  ${sb ? `<div class="card"><h3>Account</h3><p class="muted">You are logged in. Changes reach your partner within about 15 seconds.</p><p class="muted" role="status">${esc(syncInfo)}${dirty ? ' · some changes are not saved online yet' : ''}</p><button onclick="syncNow()">Sync now</button> <button data-act="logout">Log out</button>
+    <details class="pwbox"><summary>Change password</summary><form data-form="changePassword">${pwFields()}<p><button class="primary">Change password</button> <span class="pwmsg muted" role="status"></span></p></form></details></div>` : ''}
   ${notifyCard()}
   <div class="card"><h3>Backup</h3><p class="muted">${sb ? 'Your data is saved online. A backup file is still a good safety net.' : 'Data is stored in this browser only. Export a copy now and then.'}</p>
     <button data-act="export">Export backup</button> <label><button type="button" onclick="this.nextElementSibling.click()">Import backup</button><input type="file" id="imp" accept=".json" hidden></label></div>
@@ -287,6 +288,7 @@ const A = {
   delSport: id => { S.sports = S.sports.filter(s => s.id !== id); },
   logout: () => { logout(); },
   more: () => { moreOpen = !moreOpen; },
+  authMode: m => { authMode = m; },
   notifyOn: () => { notifyOn(); },
   notifyOff: () => { notifyOff(); },
   notifyTest: () => { notifyTest(); },
@@ -337,6 +339,10 @@ const ICONS = {
 
 /* ---------- cloud sync (Supabase) ---------- */
 const CFG = window.CONFIG || {};
+/* Arriving from a "reset password" email: the link carries type=recovery (or an error if it expired). Read it before Supabase tidies the address. */
+const AUTH_HASH = new URLSearchParams(location.hash.slice(1));
+let recovering = AUTH_HASH.get('type') === 'recovery', authMode = 'login';
+const authLinkError = AUTH_HASH.get('error_description');
 const sb = (CFG.SUPABASE_URL && CFG.SUPABASE_KEY && window.supabase) ? window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY) : null;
 /* How syncing works: "base" is the last version both this device and the server agreed on.
    When saving, if the server changed since then (your partner saved something), the two sets of
@@ -445,10 +451,42 @@ async function logout() {
   S = withDefaults(); base = { data: null, at: null }; dirty = false; authed = false; editing = null;
   render();
 }
-const loginView = () => `<form class="card login" data-form="login"><img class="loginlogo" src="us-cutout.png" alt=""><h2>Welcome back</h2><p class="muted">Log in to open your shared space.</p>
+const loginView = () => authMode === 'forgot'
+  ? `<form class="card login" data-form="forgot"><img class="loginlogo" src="us-cutout.png" alt=""><h2>Forgot your password?</h2><p class="muted">Type your email and we'll send you a link to choose a new password. Open the link on this phone or computer.</p>
+  <p><input type="email" name="email" placeholder="Email" required autocomplete="username" aria-label="Email" style="width:100%"></p>
+  <p><button class="primary">Send link</button> <button type="button" data-act="authMode" data-id="login">Back to log in</button></p><p id="loginmsg" class="muted" role="status"></p></form>`
+  : `<form class="card login" data-form="login"><img class="loginlogo" src="us-cutout.png" alt=""><h2>Welcome back</h2><p class="muted">Log in to open your shared space.</p>
+  ${authLinkError ? `<p class="loginerr" role="alert">That password link didn't work (${esc(authLinkError.replace(/\+/g, ' '))}). Links work once and expire after an hour, so ask for a new one below.</p>` : ''}
   <p><input type="email" name="email" placeholder="Email" required autocomplete="username" aria-label="Email" style="width:100%"></p>
   <p><input type="password" name="password" placeholder="Password" required autocomplete="current-password" aria-label="Password" style="width:100%"></p>
-  <p><button class="primary">Log in</button> <span id="loginmsg" class="muted" role="status"></span></p></form>`;
+  <p><button class="primary">Log in</button> <button type="button" class="ghost" data-act="authMode" data-id="forgot">Forgot password?</button></p><p id="loginmsg" class="muted" role="status"></p></form>`;
+const pwFields = (first = 'New password') => `<p><input type="password" name="pw" placeholder="${first}" required minlength="8" autocomplete="new-password" aria-label="${first}" style="width:100%"></p>
+  <p><input type="password" name="pw2" placeholder="Repeat it" required minlength="8" autocomplete="new-password" aria-label="Repeat the new password" style="width:100%"></p>`;
+const recoverView = () => `<form class="card login" data-form="newPassword"><img class="loginlogo" src="us-cutout.png" alt=""><h2>Choose a new password</h2><p class="muted">At least 8 characters. Use something you don't use anywhere else.</p>
+  ${pwFields()}<p><button class="primary">Save new password</button></p><p id="loginmsg" class="muted" role="status"></p></form>`;
+async function sendReset(fd) {
+  const msg = document.getElementById('loginmsg'); msg.textContent = 'Sending…';
+  const { error } = await sb.auth.resetPasswordForEmail(String(fd.get('email')).trim(), { redirectTo: location.origin + location.pathname });
+  msg.textContent = error && /rate|too many|seconds/i.test(error.message) ? 'Too many tries. Wait a few minutes and try again.'
+    : error ? 'Could not send the email: ' + error.message
+    : 'Done. If this email has an account, a link is on its way. Check your inbox (and spam).';
+}
+/* used by both the "reset" link page and Settings → Change password */
+async function setPassword(fd, msgEl) {
+  const pw = String(fd.get('pw')), pw2 = String(fd.get('pw2'));
+  if (pw.length < 8) { msgEl.textContent = 'Use at least 8 characters.'; return false; }
+  if (pw !== pw2) { msgEl.textContent = "The two passwords don't match."; return false; }
+  msgEl.textContent = 'Saving…';
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (error) {
+    msgEl.textContent = /same|different from the old/i.test(error.message) ? 'That is your current password. Pick a new one.'
+      : /reauth|recent/i.test(error.message) ? 'For safety, log out and log in again, then change it right away.'
+      : /weak|short|pwned|leaked/i.test(error.message) ? 'That password is too weak or has appeared in a data leak. Pick a different one.'
+      : 'Could not change it: ' + error.message;
+    return false;
+  }
+  return true;
+}
 async function boot() {
   if (sb) {
     const { data } = await sb.auth.getSession();
@@ -461,7 +499,11 @@ async function boot() {
     addEventListener('online', () => { if (authed) pull(); });
     addEventListener('beforeunload', e => { if (authed && dirty) { push(); e.preventDefault(); e.returnValue = ''; } });
     /* session ended elsewhere (expired or logged out in another tab): show the login again */
-    sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && authed) { authed = false; editing = null; render(); } });
+    sb.auth.onAuthStateChange(ev => {
+      if (ev === 'SIGNED_OUT' && authed) { authed = false; editing = null; render(); }
+      if (ev === 'PASSWORD_RECOVERY') { recovering = true; authed = true; setTimeout(render); }
+    });
+    if (authLinkError) history.replaceState(null, '', location.pathname); // tidy the address; the message is shown on the login
   }
   render();
 }
@@ -861,6 +903,7 @@ navigator.serviceWorker?.addEventListener('message', async e => {
 });
 function render() {
   document.body.classList.toggle('locked', !authed);
+  if (recovering && authed) { nav.innerHTML = ''; view.innerHTML = recoverView(); document.body.classList.add('locked'); return; }
   if (!authed) { nav.innerHTML = ''; view.innerHTML = loginView(); return; }
   if (migrateGoals() | compactFood()) save();
   const [page, a, b] = location.hash.slice(1).split('/');
@@ -886,10 +929,22 @@ function render() {
   hydrate(); fillWeather();
   clearInterval(rotTimer); if (m.id === 'home' && sb && S.photos.length > 1) rotTimer = setInterval(rotatePhoto, 9000);
 }
-const UI_ONLY = new Set(['pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'twho', 'grange', 'hwho', 'hday', 'hedit', 'offPick', 'mmonth', 'mwho', 'mall', 'mbudgets', 'more', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
+const UI_ONLY = new Set(['pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'twho', 'grange', 'hwho', 'hday', 'hedit', 'offPick', 'mmonth', 'mwho', 'mall', 'mbudgets', 'more', 'authMode', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
 document.addEventListener('submit', e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
   if (f.dataset.form === 'login') { e.preventDefault(); login(new FormData(f)); return; }
+  if (f.dataset.form === 'forgot') { e.preventDefault(); sendReset(new FormData(f)); return; }
+  if (f.dataset.form === 'newPassword') {
+    e.preventDefault();
+    setPassword(new FormData(f), document.getElementById('loginmsg')).then(async ok => { if (!ok) return; recovering = false; history.replaceState(null, '', location.pathname); await pull(true); render(); toast('New password saved'); });
+    return;
+  }
+  if (f.dataset.form === 'changePassword') {
+    e.preventDefault();
+    const m = f.querySelector('.pwmsg');
+    setPassword(new FormData(f), m).then(ok => { if (ok) { f.reset(); m.textContent = ''; toast('Password changed'); } });
+    return;
+  }
   e.preventDefault();
   try { F[f.dataset.form](Object.fromEntries(new FormData(f))); }
   catch (err) { console.error(err); toast('That item was changed or removed on the other device.'); }

@@ -2,6 +2,10 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.7 – 12 Nov 2026
+- **Forgot password?** on the login screen: type your email, open the link from the email, choose a new password, and you're logged in. Expired or already-used links show a clear message.
+- **Settings → Account → Change password** while logged in.
+
 ## 1.6 – 12 Nov 2026
 - **Notifications only when it concerns the other person:** something you add just for yourself (your to-do, note, event, sport, list or goal) no longer notifies the other phone. Things for them or for "Both" still do.
 - **New page: Weight.** Each of you sets up height, birthday, weight, activity and pace once; the app works out how much you burn and a daily calorie budget for steady weight loss (never below a safe minimum). Log food with a built-in list of common Czech foods (calories fill in from grams), online search of packaged products (Open Food Facts) or by typing kcal; foods you add are remembered and "Again?" re-adds recent ones in one tap. Weight log with a chart, goal line, kilos lost and roughly how many weeks to go; a 14-day calorie chart.
