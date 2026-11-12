@@ -97,7 +97,7 @@ async function fetchPerson(key: string) {
     acts.push({ gid: String(a.activityId), type: niceType(t, String(a.activityName ?? '')), date, name: String(a.activityName ?? ''),
       mins: Math.round(secs / 60), km: Math.round(Number(a.distance ?? 0) / 100) / 10, kcal: typeof a.calories === 'number' ? Math.round(a.calories) : null });
   }
-  return { days, acts, sample };
+  return { days, acts, sample, raw: { summaries: sum, activities: al } };
 }
 
 /* Put one person's Garmin numbers into the shared data. Returns true if anything changed. */
@@ -142,7 +142,8 @@ Deno.serve(async (req) => {
   // Allowed: the 30-minute schedule (secret header) or one of you, logged in to the app.
   const sent = req.headers.get('x-sync-secret');
   const secret = sent ? (await admin.rpc('garmin_sync_secret')).data : null;
-  let only: number | null = null;
+  let only: number | null = null, debug = false;
+  if (secret && sent === secret) debug = !!(await req.clone().json().catch(() => ({})))?.debug;
   if (!(secret && sent === secret)) {
     const asUser = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } });
     const { data } = await asUser.auth.getUser();
@@ -159,7 +160,9 @@ Deno.serve(async (req) => {
     try {
       fetched[who] = await fetchPerson(key);
       const f = fetched[who];
-      out[who] = { days: f.days, activities: f.acts.length, ...(f.days.some((x) => x.kcal) ? {} : { fieldsSeen: f.sample }) };
+      out[who] = { days: f.days, activities: f.acts.length, ...(f.days.some((x) => x.kcal) ? {} : { fieldsSeen: f.sample }),
+        // debug (schedule password only): a cut-down copy of what Garmin sent, to adjust field names
+        ...(debug ? { raw: JSON.stringify(f.raw).slice(0, 6000) } : {}) };
     } catch (e) { out[who] = { error: String((e as Error).message ?? e) }; }
   }
 
