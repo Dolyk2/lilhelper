@@ -466,3 +466,7 @@ button.chip{border:0;cursor:pointer;font:inherit;color:var(--ink)}
 .loginerr{background:rgba(255,120,90,.15);color:#ffb3a1;border-radius:12px;padding:.6rem .8rem;font-size:.9rem}
 .pwbox{margin-top:.9rem}.pwbox summary{cursor:pointer;color:var(--muted);font-weight:600}
 .pwbox form{margin-top:.6rem;max-width:26rem}
+
+/* standing orders form */
+.rl{display:flex;flex-direction:column;gap:.15rem;font-size:.75rem}
+.rl input{min-width:9rem}

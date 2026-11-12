@@ -2,7 +2,7 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
-const APP_VERSION = '1.8', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
+const APP_VERSION = '1.9', APP_DATE = '10 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
@@ -259,7 +259,7 @@ const MODS = [
   { id: 'goals', title: 'Goals', render: goals },
   { id: 'sports', title: 'Sports', render: sports },
   { id: 'health', title: 'Health', render: health },
-  { id: 'money', title: 'Money', render: moneyPage },
+  { id: 'money', title: 'Finances', render: moneyPage },
   { id: 'dates', title: 'Special dates', short: 'Dates', render: dates },
   { id: 'settings', title: 'Settings', render: settings }
 ];
@@ -918,7 +918,7 @@ function render() {
   document.body.classList.toggle('locked', !authed);
   if (recovering && authed) { nav.innerHTML = ''; view.innerHTML = recoverView(); document.body.classList.add('locked'); return; }
   if (!authed) { nav.innerHTML = ''; view.innerHTML = loginView(); return; }
-  if (migrateGoals() | compactFood()) save();
+  if (migrateGoals() | compactFood() | materializeRec()) save();
   const [page, a, b] = location.hash.slice(1).split('/');
   const m = MODS.find(m => m.id === page) || MODS[0];
   const hl = a ? focusPrep(m.id, a, b) : null;
@@ -942,7 +942,7 @@ function render() {
   hydrate(); fillWeather();
   clearInterval(rotTimer); if (m.id === 'home' && sb && S.photos.length > 1) rotTimer = setInterval(rotatePhoto, 9000);
 }
-const UI_ONLY = new Set(['pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'twho', 'grange', 'hwho', 'hday', 'hedit', 'offPick', 'mmonth', 'mwho', 'mall', 'mbudgets', 'more', 'authMode', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
+const UI_ONLY = new Set(['pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'twho', 'grange', 'hwho', 'hday', 'hedit', 'offPick', 'mmonth', 'mwho', 'mall', 'mbudgets', 'mrec', 'more', 'authMode', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
 document.addEventListener('submit', e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
   if (f.dataset.form === 'login') { e.preventDefault(); login(new FormData(f)); return; }

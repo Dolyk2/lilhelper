@@ -2,6 +2,10 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.9 – 12 Nov 2026
+- **Money is now called Finances.**
+- **Standing orders:** add payments that repeat every week, every 2 weeks, every month or every year (paying or receiving), with an optional end date. On each payment day the payment is added to your transactions automatically. When you import the bank statement, the real payment replaces the planned one (same amount within 4 days), so nothing is counted twice. The page shows the monthly total of standing orders and, for the current month, how much is still to go out. Mine or shared, like other finances.
+
 ## 1.8 – 12 Nov 2026
 - **Personal things stay personal:** in To-do, Notes, Money and Health you see only your own items and the shared ("Both") ones; your partner's personal items are hidden from you, and yours from them. The app knows who you are from your login. Filters: All / Only mine / Shared. You can still add a to-do or note for your partner: it goes to their list (you get a short message), and they're notified.
 - Home shows only your own and shared to-dos.
