@@ -63,15 +63,14 @@ function materializeRec() {
   return changed;
 }
 const skipRec = tx => { const r = tx?.rec && REC().find(x => x.id === tx.rec); if (r) (r.skip ||= []).push(tx.date); };
-const mineOpts = () => `<option value="${I()}">Mine</option><option value="2">Shared</option>`;
-const recFields = r => `<select name="type" aria-label="Type"><option value="out" ${r.amount > 0 ? '' : 'selected'}>Pay</option><option value="in" ${r.amount > 0 ? 'selected' : ''}>Receive</option></select>
+const recFields = r => `${seg('type', [['out', 'Pay'], ['in', 'Receive']], r.amount > 0 ? 'in' : 'out', 'Type')}
   <input type="number" name="amount" min="0.01" step="any" value="${r.amount ? Math.abs(r.amount) : ''}" placeholder="Kč" required aria-label="Amount" style="max-width:7rem">
   <input type="text" name="desc" value="${esc(r.desc || '')}" placeholder="What for? e.g. Rent, pocket money" required aria-label="What for">
   <select name="freq" aria-label="How often">${FREQS.map(([f, n]) => `<option value="${f}" ${f === r.freq ? 'selected' : ''}>${n}</option>`).join('')}</select>
   <label class="muted rl">first payment <input type="date" name="start" value="${r.start || ''}" required></label>
   <label class="muted rl">until (optional) <input type="date" name="end" value="${r.end || ''}"></label>
   <select name="cat" aria-label="Category"><option value="">auto category</option>${CATS.map(([c, n, i]) => `<option value="${c}" ${c === r.cat ? 'selected' : ''}>${i} ${n}</option>`).join('')}</select>
-  <select name="who" aria-label="Whose"><option value="${I()}" ${+r.who === I() ? 'selected' : ''}>Mine</option><option value="2" ${+r.who === 2 ? 'selected' : ''}>Shared</option></select>`;
+  ${whoSeg('who', r.who ?? 2, 'Whose')}`;
 const money = v => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(v);
 const monthKey = (d = new Date()) => iso(d).slice(0, 7);
 const monthName = k => new Date(+k.slice(0, 4), +k.slice(5) - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -85,7 +84,7 @@ function guessCat(desc, amount) {
   for (const [cat, words] of Object.entries(AUTO)) if (words.split('|').some(w => n.includes(w))) return cat;
   return 'other';
 }
-const inMonth = (k, who) => M().tx.filter(t => t.date.startsWith(k) && visPick(who, t.who)); // your own + shared accounts; never your partner's personal ones
+const inMonth = (k, who) => M().tx.filter(t => t.date.startsWith(k) && visPick(who, t.who));
 function totals(txs) {
   const income = txs.filter(t => t.amount > 0 && t.cat !== 'transfer').reduce((a, t) => a + t.amount, 0);
   const spent = -txs.filter(t => t.amount < 0 && !['transfer', 'savings'].includes(t.cat)).reduce((a, t) => a + t.amount, 0);
@@ -119,6 +118,11 @@ function moneyPage() {
   return `<h2>Finances</h2>
   <div class="mtop"><div class="daynav"><button class="ghost" data-act="mmonth" data-id="-1" aria-label="Previous month">‹</button><strong>${monthName(k)}</strong><button class="ghost" data-act="mmonth" data-id="1" aria-label="Next month" ${k >= monthKey() ? 'disabled' : ''}>›</button></div>
     <div class="tabs" style="margin:0">${visTabs(mWho, 'mwho')}</div></div>
+    <div class="card mimport"><h3>📥 Monthly bank statement</h3>
+      <p class="muted">In your bank's internet banking, open the account history, pick the month and export it as <b>CSV</b>. Then choose the file here. Shops are sorted into categories automatically; when you change a category, the app remembers it for that shop.</p>
+      <div class="row"><label class="muted">Whose account? <select id="impWho">${[2, 0, 1].map(i => `<option value="${i}">${esc(owner(i))}</option>`).join('')}</select></label><button class="primary" type="button" onclick="document.getElementById('csvfile').click()">Choose CSV file</button><input type="file" id="csvfile" accept=".csv,text/csv" hidden></div>
+      <p class="muted msmall">Only the date, amount and description are saved. Account numbers are left out. Payments already imported are skipped.</p>
+      <p>${lastImport ? `<button class="ghost" data-act="undoImport" data-id="${lastImport}">Undo last import</button>` : ''}${M().tx.length ? `<button class="ghost" data-act="wipeMoney">Delete all payments</button>` : ''}</p></div>
   <div class="grid mgrid">
     <div class="card"><div class="muted">Income</div><div class="big mpos">${money(T.income)}</div></div>
     <div class="card"><div class="muted">Spent</div><div class="big">${money(T.spent)}</div>${upcoming < 0 ? `<div class="muted msmall">+ ${money(-upcoming)} in standing orders still to go out</div>` : ''}${prev.spent ? `<div class="muted msmall">${T.spent > prev.spent ? '▲' : '▼'} ${money(Math.abs(T.spent - prev.spent))} vs last month</div>` : ''}</div>
@@ -135,9 +139,9 @@ function moneyPage() {
       ${cats.length ? `<p class="muted">Biggest: ${cats.slice(0, 3).map(([c, v]) => `${CAT[c].i} ${CAT[c].n} ${money(v)}`).join(', ')}.</p>` : ''}</div>
   </div>
   <div class="card"><div class="chead"><h3>Transactions</h3><span class="muted">${list.length} this month</span></div>
-    <form class="row" data-form="addTx"><select name="type" aria-label="Type"><option value="out">Spent</option><option value="in">Received</option></select><input type="number" name="amount" min="0.01" step="any" placeholder="Kč" required aria-label="Amount" style="max-width:8rem">
+    <details class="madd"><summary class="muted">+ Add a payment by hand</summary><form class="row" data-form="addTx">${seg('type', [['out', 'Spent'], ['in', 'Received']], 'out', 'Type')}<input type="number" name="amount" min="0.01" step="any" placeholder="Kč" required aria-label="Amount" style="max-width:8rem">
       <input type="text" name="desc" placeholder="What for? e.g. Lidl, rent" required aria-label="Description"><select name="cat" aria-label="Category"><option value="">auto category</option>${CATS.map(([c, n, i]) => `<option value="${c}">${i} ${n}</option>`).join('')}</select>
-      <input type="date" name="date" value="${k === monthKey() ? iso(new Date()) : k + '-01'}" aria-label="Date"><select name="who" aria-label="Whose">${mineOpts()}</select><button class="primary">Add</button></form>
+      <input type="date" name="date" value="${k === monthKey() ? iso(new Date()) : k + '-01'}" aria-label="Date">${whoSeg('who', 2, 'Whose')}<button class="primary">Add</button></form></details>
     <ul class="items txlist">${shown.map(t => `<li data-w="${t.who}" data-hl="${t.id}"><div class="grow"><div class="evt">${esc(t.desc)}</div><div class="evm">${fmtShort(t.date)}${t.who == 2 ? ' · shared' : ''}</div></div>${catSel(t)}<b class="${t.amount > 0 ? 'mpos' : ''}">${t.amount > 0 ? '+' : ''}${money(t.amount)}</b><button class="ghost" data-act="delTx" data-id="${t.id}" aria-label="Delete">✕</button></li>`).join('') || '<li class="muted">Nothing yet.</li>'}</ul>
     ${list.length > 25 ? `<button class="ghost" data-act="mall">${mShowAll ? 'Show fewer' : `Show all ${list.length}`}</button>` : ''}</div>
   <div class="card"><div class="chead"><h3>Standing orders</h3><button class="ghost" data-act="mrec">${mRecForm ? 'Close' : '+ Add'}</button></div>
@@ -145,11 +149,6 @@ function moneyPage() {
     ${mRecForm ? `<form class="row" data-form="addRec">${recFields({ freq: 'w', start: tday, who: I() })}<button class="primary">Add</button></form>` : ''}
     <ul class="items txlist">${recs.map(recRow).join('') || (mRecForm ? '' : '<li class="muted">No standing orders yet.</li>')}</ul></div>
   <div class="mcols">
-    <div class="card"><h3>Import bank statement (CSV)</h3>
-      <p class="muted">In your bank's internet banking, open the account history, pick the month and export it as <b>CSV</b>. Then choose the file here. Shops are sorted into categories automatically; when you change a category, the app remembers it for that shop.</p>
-      <div class="row"><label class="muted">Whose account? <select id="impWho">${mineOpts()}</select></label><button class="primary" type="button" onclick="document.getElementById('csvfile').click()">Choose CSV file</button><input type="file" id="csvfile" accept=".csv,text/csv" hidden></div>
-      <p class="muted msmall">Only the date, amount and description are saved. Account numbers are left out. Payments already imported are skipped.</p>
-      ${lastImport ? `<button class="ghost" data-act="undoImport" data-id="${lastImport}">Undo last import</button>` : ''}</div>
     <div class="card"><div class="chead"><h3>Monthly budgets</h3><button class="ghost" data-act="mbudgets">${mEditBudgets ? 'Close' : 'Edit'}</button></div>
       ${mEditBudgets ? `<form data-form="saveBudgets"><div class="pgrid">${SPEND_CATS.map(([c, n, i]) => `<label>${i} ${n}<input type="number" name="${c}" min="0" step="100" value="${M().budgets[c] || ''}" placeholder="no limit"></label>`).join('')}
         <label>💰 Savings goal per month<input type="number" name="__save" min="0" step="500" value="${M().saveGoal || ''}" placeholder="e.g. 5000"></label></div><p><button class="primary">Save</button></p></form>`
@@ -256,6 +255,7 @@ const MONEY_ACTS = {
   mall: () => { mShowAll = !mShowAll; },
   mbudgets: () => { mEditBudgets = !mEditBudgets; },
   mrec: () => { mRecForm = !mRecForm; },
+  wipeMoney: () => { const n = M().tx.length; if (n && confirm(`Delete all ${n} payments for both of you? Budgets, categories you taught and standing orders stay. This cannot be undone.`)) M().tx = []; },
   delTx: id => { const t = M().tx.find(x => x.id === id); skipRec(t); M().tx = M().tx.filter(x => x.id !== id); },
   delRec: id => { const r = REC().find(x => x.id === id); if (r && confirm(`Stop "${r.desc}"? Payments already added stay in your transactions.`)) M().rec = REC().filter(x => x.id !== id); },
   undoImport: imp => { const n = M().tx.filter(t => String(t.imp) === String(imp)).length; if (confirm(`Remove the ${n} payments from the last import?`)) M().tx = M().tx.filter(t => String(t.imp) !== String(imp)); }

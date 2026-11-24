@@ -25,15 +25,28 @@ const FOODS = [
   ['Mléčná čokoláda · milk chocolate', 535, 25, '¼ bar', [7, 57, 31]], ['Chipsy · crisps', 535, 50, '½ bag', [6, 50, 34]], ['Sušenky · biscuits', 480, 30, '3 pieces', [6, 68, 20]], ['Zmrzlina · ice cream', 210, 100, '2 scoops', [3.5, 24, 11]],
   ['Koláč / buchta · cake', 350, 100, '1 piece', [6, 50, 14]], ['Croissant', 406, 60, '1 piece', [8, 46, 21]], ['Proteinová tyčinka · protein bar', 360, 55, '1 bar', [30, 35, 10]],
   ['Protein shake (s vodou)', 380, 30, '1 scoop', [75, 8, 6]], ['Pivo 10° · beer', 35, 500, '0.5 l', [0.4, 3, 0]], ['Pivo 12° · lager', 43, 500, '0.5 l', [0.5, 3.6, 0]], ['Víno · wine', 82, 200, '1 glass', [0.1, 2.6, 0]],
-  ['Coca-Cola', 42, 330, '1 can', [0, 10.6, 0]], ['Džus · juice', 45, 250, '1 glass', [0.5, 10, 0.1]], ['Cappuccino', 40, 200, '1 cup', [2.2, 3.3, 2]], ['Latte', 45, 300, '1 cup', [2.4, 3.6, 2.1]], ['Káva černá · black coffee', 2, 150, '1 cup', [0.1, 0, 0]]
+  ['Coca-Cola', 42, 330, '1 can', [0, 10.6, 0]], ['Džus · juice', 45, 250, '1 glass', [0.5, 10, 0.1]], ['Cappuccino', 40, 200, '1 cup', [2.2, 3.3, 2]], ['Latte', 45, 300, '1 cup', [2.4, 3.6, 2.1]], ['Káva černá · black coffee', 2, 150, '1 cup', [0.1, 0, 0]],
+  ['Řízek s bramborovým salátem · schnitzel & potato salad', 220, 400, '1 plate', [9, 17, 13]], ['Vepřo knedlo zelo · pork, dumplings, sauerkraut', 165, 450, '1 plate', [8, 18, 7]],
+  ['Kuře na paprice s těstovinami · chicken paprikash', 150, 400, '1 plate', [10, 15, 5.5]], ['Rajská omáčka s knedlíkem · tomato sauce beef', 160, 450, '1 plate', [8, 19, 6]],
+  ['Španělský ptáček s rýží · beef roll & rice', 170, 400, '1 plate', [9, 17, 7]], ['Segedínský guláš s knedlíkem', 160, 450, '1 plate', [9, 16, 7]],
+  ['Bramboráky · potato pancakes', 230, 200, '2 pieces', [4, 25, 13]], ['Halušky s brynzou', 230, 350, '1 plate', [7, 28, 10]], ['Rizoto · risotto', 150, 350, '1 plate', [6, 22, 4]],
+  ['Kulajda · dill potato soup', 80, 300, '1 bowl', [2.5, 7, 4.5]], ['Česnečka · garlic soup', 45, 300, '1 bowl', [1.8, 5, 2]], ['Gulášová polévka · goulash soup', 70, 300, '1 bowl', [5, 5, 3.5]],
+  ['Vývar s nudlemi · broth with noodles', 35, 350, '1 bowl', [2.5, 4, 1]], ['Bramborová polévka · potato soup', 60, 300, '1 bowl', [1.5, 8, 2.5]], ['Houbová polévka · mushroom soup', 60, 300, '1 bowl', [1.3, 5, 4]],
+  ['Palačinky · pancakes', 230, 150, '2 pieces', [6, 30, 9]], ['Lívance · small pancakes', 250, 150, '3 pieces', [6, 33, 10]], ['Ovocné knedlíky · fruit dumplings', 200, 250, '4 pieces', [5, 38, 3]],
+  ['Chlebíček · open sandwich', 220, 80, '1 piece', [7, 18, 13]], ['Párek v rohlíku · hot dog', 270, 150, '1 piece', [10, 30, 13]], ['Langoš', 330, 250, '1 piece', [7, 38, 17]], ['Trdelník', 340, 150, '1 piece', [6, 55, 11]],
+  ['Dhal s rýží · dhal & rice', 135, 450, '1 plate', [5, 22, 3]], ['Kari s rýží · curry & rice', 150, 450, '1 plate', [7, 18, 5.5]], ['Pad thai', 170, 400, '1 plate', [7, 22, 6]], ['Ramen', 90, 600, '1 bowl', [5, 11, 3]],
+  ['Burrito', 210, 350, '1 piece', [9, 25, 8]], ['Lasagne', 165, 350, '1 portion', [9, 13, 8.5]], ['Špagety bolognese · spaghetti', 150, 400, '1 plate', [7, 18, 5]], ['Caesar salát · Caesar salad', 150, 300, '1 bowl', [8, 7, 10]],
+  ['Tortilla wrap', 230, 250, '1 wrap', [10, 25, 10]], ['Kuřecí nugetky · nuggets', 290, 150, '6 pieces', [15, 18, 18]], ['Kobliha · doughnut', 380, 70, '1 piece', [6, 45, 19]], ['Větrník · cream puff', 360, 110, '1 piece', [4, 40, 20]],
+  ['Pivo nealko · alcohol-free beer', 26, 500, '0.5 l', [0.3, 6, 0]], ['Kofola', 33, 500, '0.5 l', [0, 8, 0]], ['Energy drink', 45, 250, '1 can', [0, 11, 0]], ['Espresso', 2, 30, '1 cup', [0.1, 0, 0]],
+  ['Kakao s mlékem · cocoa', 75, 250, '1 mug', [3.5, 10, 2]]
 ];
 const MEALS = [['b', 'Breakfast', '🌅'], ['l', 'Lunch', '🍽️'], ['d', 'Dinner', '🌙'], ['s', 'Snacks', '🍎']];
 const ACTIVITY = [[1.2, 'Mostly sitting (office, little walking)'], [1.375, 'Light (walking, sport 1–3× a week)'], [1.55, 'Active (sport 3–5× a week)'], [1.725, 'Very active (hard sport 6–7× a week)']];
 const PACE = [[0, 'Keep my weight'], [0.25, 'Lose 0.25 kg a week (easy)'], [0.5, 'Lose 0.5 kg a week (recommended)'], [0.75, 'Lose 0.75 kg a week (hard)']];
-let hWho = null, hDay = null, hEdit = false, foodHits = [], offHits = null;
+let hWho = null, hDay = null, hEdit = false, foodHits = [];
 
 const H = () => (S.health ||= { profiles: {}, food: [], weights: [], myFoods: [], days: {}, burn: {} });
-const hPerson = () => I(); // everyone sees only their own food and weight
+const hPerson = () => hWho ?? I(); // your own page first; the tabs on top show your partner's
 const latestWeight = w => H().weights.filter(x => x.who === w).sort((a, b) => b.date.localeCompare(a.date))[0];
 const ageOf = born => { if (!born) return 30; const b = parse(born), t = new Date(); return t.getFullYear() - b.getFullYear() - (t < new Date(t.getFullYear(), b.getMonth(), b.getDate()) ? 1 : 0); };
 /* Daily calorie numbers from the profile (Mifflin–St Jeor formula, the one dietitians use). */
@@ -96,61 +109,58 @@ function compactFood() {
 
 function health() {
   const w = hPerson(), p = H().profiles[w], b = budgetOf(w), day = hDay || iso(new Date()), t = iso(new Date());
-  const head = `<div class="homehead"><h2>Health</h2><span class="muted">${esc(S.names[w])} · your own food and weight</span></div>`;
+  const head = `<div class="homehead"><h2>Health</h2><div class="tabs" style="margin:0">${[0, 1].map(i => `<button class="${w === i ? 'on' : ''}" data-act="hwho" data-id="${i}" data-w="${i}">${esc(S.names[i])}</button>`).join('')}</div></div>`;
   if (!b || hEdit) return head + profileForm(w, p);
   const burn = burnOf(w, day, b), budget = budgetOn(w, day, b, burn);
   const food = H().food.filter(f => f.who === w && f.date === day), eaten = food.reduce((a, f) => a + f.kcal, 0), left = budget - eaten;
   const sum = k => food.reduce((a, f) => a + (+f[k] || 0), 0), mt = macroTargets(b, budget), noMac = food.filter(f => f.p == null && f.c == null && f.f == null).length;
   const dayNav = `<div class="daynav"><button class="ghost" data-act="hday" data-id="-1" aria-label="Previous day">‹</button><strong>${day === t ? 'Today' : fmtShort(day)}</strong><button class="ghost" data-act="hday" data-id="1" aria-label="Next day" ${day >= t ? 'disabled' : ''}>›</button></div>`;
-  const meals = MEALS.map(([k, name, ic]) => { const items = food.filter(f => f.meal === k); return `<div class="meal"><div class="mealh"><span>${ic} ${name}</span><b>${kc(items.reduce((a, f) => a + f.kcal, 0))} kcal</b></div>
-    ${items.map(f => `<div class="fooditem" data-hl="${f.id}"><span class="grow">${esc(f.name)}${f.g ? ` <small class="muted">${f.g} g</small>` : ''}${macStr(f) ? `<small class="muted fmac">${macStr(f)}</small>` : ''}</span><span>${kc(f.kcal)}</span><button class="ghost" data-act="delFood" data-id="${f.id}" aria-label="Remove">✕</button></div>`).join('')}</div>`; }).join('');
+  const meals = MEALS.map(([k, name, ic]) => { const items = food.filter(f => f.meal === k); return items.length ? `<div class="meal"><div class="mealh"><span>${ic} ${name}</span><b>${kc(items.reduce((a, f) => a + f.kcal, 0))}</b></div>
+    ${items.map(f => `<div class="fooditem" data-hl="${f.id}"><span class="grow">${esc(f.name)}<small class="muted fmac">${[f.g && f.g + ' g', macStr(f)].filter(Boolean).join(' · ')}</small></span><span>${kc(f.kcal)}</span><button class="ghost" data-act="delFood" data-id="${f.id}" aria-label="Remove">✕</button></div>`).join('')}</div>` : ''; }).join('');
   const hour = new Date().getHours(), meal = day !== t ? 's' : hour < 10 ? 'b' : hour < 15 ? 'l' : hour < 21 ? 'd' : 's';
-  const recent = [...new Map(H().food.filter(f => f.who === w).sort((a, b) => b.at - a.at).map(f => [f.name, f])).values()].slice(0, 8);
+  const recent = [...new Map(H().food.filter(f => f.who === w).sort((a, b) => b.at - a.at).map(f => [f.name, f])).values()].slice(0, 6);
   const bar = (label, v, goal, cls) => `<div class="mbar ${cls}"><div class="mbh"><span>${label}</span><span><b>${mfmt(v)}</b> / ${goal} g</span></div><div class="mtrack"><i style="width:${Math.min(100, goal ? v / goal * 100 : 0).toFixed(0)}%"></i></div></div>`;
   return `${head}
-  <div class="hgrid">
+  <div class="hgrid2">
     <div class="card hday" data-w="${w}">${dayNav}
-      <div class="hdonut">${donut(eaten / budget, 170, 16, left >= 0 ? kc(left) : '+' + kc(-left), left >= 0 ? 'kcal left' : 'kcal over')}</div>
-      <div class="hnums"><div><b>${kc(budget)}</b><small>budget</small></div><div><b>${kc(eaten)}</b><small>eaten</small></div><div><b>${kc(burn.total)}</b><small>burned${burn.garmin ? ' ⌚' : ''}</small></div></div>
-      <div class="macros">${bar('Protein', sum('p'), mt.p, 'mp')}${bar('Carbs', sum('c'), mt.c, 'mc')}${bar('Fat', sum('f'), mt.f, 'mf')}
-        ${noMac ? `<p class="muted fhelp">${noMac} food${noMac > 1 ? 's' : ''} without nutrients ${noMac > 1 ? "aren't" : "isn't"} counted here.</p>` : ''}</div>
-      <p class="muted hhint">${left >= 0 ? `Eating up to ${kc(budget)} kcal keeps you ${kc(burn.total - budget)} kcal under what you burned${burn.total - budget > 0 ? ` (about ${((burn.total - budget) * 7 / 7700).toFixed(2)} kg a week)` : ''}.` : `Over budget ${day === t ? 'today' : 'this day'}. One day doesn't matter, the weekly average does.`}</p>
+      <div class="hdrow"><div class="hdonut">${donut(eaten / budget, 150, 14, left >= 0 ? kc(left) : '+' + kc(-left), left >= 0 ? 'kcal left' : 'kcal over')}</div>
+        <div class="hnums"><div><small>budget</small><b>${kc(budget)}</b></div><div><small>eaten</small><b>${kc(eaten)}</b></div><div><small>burned${burn.garmin ? ' ⌚' : ''}</small><b>${kc(burn.total)}</b></div></div></div>
+      <div class="macros">${bar('Protein', sum('p'), mt.p, 'mp')}${bar('Carbs', sum('c'), mt.c, 'mc')}${bar('Fat', sum('f'), mt.f, 'mf')}</div>
+      <p class="muted hhint">${left >= 0 ? `${kc(burn.total - budget)} kcal under what you burned${burn.total - budget > 0 ? ` ≈ ${((burn.total - budget) * 7 / 7700).toFixed(2)} kg a week` : ''}.` : `Over budget ${day === t ? 'today' : 'this day'}. The weekly average is what counts.`}${noMac ? ` ${noMac} food${noMac > 1 ? 's' : ''} without nutrients.` : ''}</p>
     </div>
     ${burnCard(w, day, b, burn)}
     <div class="card"><h3>Add food</h3>
       <form data-form="addFood" class="foodform" autocomplete="off"><input type="hidden" name="date" value="${day}"><input type="hidden" name="k100" id="fk100"><input type="hidden" name="m100" id="fm100">
-        <div class="fsearch"><input type="text" name="name" id="fname" placeholder="What did you eat? e.g. rohlík, banana…" required aria-label="Food"><div id="fhits" class="fhits"></div></div>
-        <div class="row"><input type="number" name="g" id="fg" placeholder="grams" min="1" step="any" aria-label="Grams"><input type="number" name="kcal" id="fkcal" placeholder="kcal" min="0" step="1" required aria-label="Calories">
-          <select name="meal" aria-label="Meal">${MEALS.map(([k, n]) => `<option value="${k}" ${k === meal ? 'selected' : ''}>${n}</option>`).join('')}</select><button class="primary">Add</button></div>
-        <div class="row macrow"><input type="number" name="p" id="fp" placeholder="protein g" min="0" step="any" aria-label="Protein in grams"><input type="number" name="c" id="fc" placeholder="carbs g" min="0" step="any" aria-label="Carbs in grams"><input type="number" name="f" id="ff" placeholder="fat g" min="0" step="any" aria-label="Fat in grams"></div>
-        <p class="muted fhelp">Pick a food from the list and calories and nutrients fill in, or type them from the packaging. <button type="button" class="ghost" data-act="offSearch">🔎 Search products online</button></p></form>
-      ${offHits ? `<div class="offhits">${offHits.length ? offHits.map((o, i) => `<button class="idea" data-act="offPick" data-id="${i}"><span>${esc(o.name)}<small class="muted"> ${kc(o.k100)} kcal / 100 g${o.m100 ? ` · P ${mfmt(o.m100[0])} C ${mfmt(o.m100[1])} F ${mfmt(o.m100[2])}` : ''}${o.g ? ` · portion ${o.g} g` : ''}</small></span></button>`).join('') : '<p class="muted">Nothing found online. Type the kcal from the packaging.</p>'}</div>` : ''}
-      ${recent.length ? `<h4 class="hsub">Again?</h4><div class="chips">${recent.map(f => `<button class="chip" data-act="foodAgain" data-id="${f.id}">${esc(f.name)} · ${kc(f.kcal)}</button>`).join('')}</div>` : ''}
+        <div class="fsearch"><input type="text" name="name" id="fname" placeholder="Search: guláš, rohlík, Activia…" required aria-label="Food"><div id="fhits" class="fhits"></div></div>
+        <div class="row"><input type="number" name="g" id="fg" placeholder="grams" min="1" step="any" aria-label="Grams"><input type="number" name="kcal" id="fkcal" placeholder="kcal" min="0" step="1" required aria-label="Calories"><button class="primary">Add</button></div>
+        ${seg('meal', MEALS.map(([k, n, ic]) => [k, `${ic} ${n}`]), meal, 'Meal')}
+        <details class="macdet"><summary class="muted">Protein, carbs, fat (fill in by themselves from the list)</summary><div class="row macrow"><input type="number" name="p" id="fp" placeholder="protein g" min="0" step="any" aria-label="Protein in grams"><input type="number" name="c" id="fc" placeholder="carbs g" min="0" step="any" aria-label="Carbs in grams"><input type="number" name="f" id="ff" placeholder="fat g" min="0" step="any" aria-label="Fat in grams"></div></details>
+      </form>
+      ${recent.length ? `<h4 class="hsub">Again?</h4><div class="chips">${recent.map(f => `<button class="chip" data-act="foodAgain" data-id="${f.id}">${esc(f.name.split(' · ')[0])} · ${kc(f.kcal)}</button>`).join('')}</div>` : ''}
     </div>
-    <div class="card hmeals"><h3>${day === t ? "Today's" : fmtShort(day)} food</h3>${meals}
-      ${food.length ? `<div class="mealh mtot"><span>Total</span><b>${kc(eaten)} kcal</b></div><p class="muted fmac">Protein ${mfmt(sum('p'))} g · Carbs ${mfmt(sum('c'))} g · Fat ${mfmt(sum('f'))} g</p>` : ''}</div>
+    <div class="card hmeals"><div class="chead"><h3>${day === t ? "Today's" : fmtShort(day)} food</h3><b>${kc(eaten)} kcal</b></div>${meals || '<p class="muted">Nothing logged yet.</p>'}
+      ${food.length ? `<p class="muted fmac mtot">Protein ${mfmt(sum('p'))} g · Carbs ${mfmt(sum('c'))} g · Fat ${mfmt(sum('f'))} g</p>` : ''}</div>
     ${weightCard(w, p, b)}
     ${historyCard(w, b)}
-    <div class="card"><h3>Your numbers</h3><p class="muted">${p.sex === 'f' ? 'Woman' : 'Man'}, ${ageOf(p.born)} years, ${p.height} cm, ${b.kg} kg.</p>
-      <p class="muted">Resting burn ${kc(b.bmr)} kcal a day, about ${kc(b.bmr * 1.2)} kcal with normal daily life before steps and sport. Goal: ${esc(PACE.find(x => x[0] == (p.pace ?? 0.5))?.[1] || '')}${p.goal ? `, target ${p.goal} kg` : ''}, so your budget is what you burn minus ${kc(b.target)} kcal.</p>
-      <p class="muted">Daily nutrient targets: protein ${mt.p} g (1.6 g per kg of ${p.goal ? 'goal ' : ''}weight), fat about 30 % of calories, carbs the rest.</p>
-      <button data-act="hedit">Change my numbers</button></div>
-  </div>`;
+  </div>
+  <details class="card numbers"><summary><b>${esc(S.names[w])}'s numbers</b> <span class="muted">resting burn ${kc(b.bmr)} kcal · target ${p.goal ? p.goal + ' kg' : '–'} · protein ${mt.p} g</span></summary>
+    <p class="muted">${p.sex === 'f' ? 'Woman' : 'Man'}, ${ageOf(p.born)} years, ${p.height} cm, ${b.kg} kg. Resting burn ${kc(b.bmr)} kcal a day, about ${kc(b.bmr * 1.2)} with normal daily life before steps and sport. Goal: ${esc(PACE.find(x => x[0] == (p.pace ?? 0.5))?.[1] || '')}, so the budget is what you burn minus ${kc(b.target)} kcal. Nutrients: protein 1.6 g per kg of ${p.goal ? 'goal ' : ''}weight, fat about 30 % of calories, carbs the rest.</p>
+    <button data-act="hedit">Change numbers</button></details>`;
 }
 
-/* Where the "burned" number comes from, plus quick entry of steps and the Garmin total. */
+/* Where the "burned" number comes from. Garmin (synced) wins; typing steps or the Garmin total by hand is tucked away. */
 function burnCard(w, day, b, burn) {
   const t = iso(new Date()), g = burn.garmin, sg = stepsGoal(w);
-  const lines = [`<div class="fooditem"><span class="grow">Resting burn and daily life</span><span>${kc(burn.rest)}</span></div>`,
-    `<div class="fooditem"><span class="grow">Steps <small class="muted">${burn.steps ? kc(burn.steps) + ' steps (first 3,000 are in daily life)' : 'none logged yet'}</small></span><span>${kc(burn.stepK)}</span></div>`,
-    ...burn.sp.map(x => `<div class="fooditem"><span class="grow">${esc(x.s.type)} <small class="muted">${x.s.gk?.[w] ? '⌚ ' : ''}${hm(+x.s.mins || 0)}${x.s.km ? ` · ${x.s.km} km` : ''}${x.skip ? ' · already in your steps' : ''}</small></span><span>${x.skip ? '–' : kc(x.kcal)}</span></div>`)].join('');
-  return `<div class="card burn" data-w="${w}"><div class="chead"><h3>🔥 Burned ${day === t ? 'today' : fmtShort(day)}</h3><b>${kc(burn.total)} kcal</b></div>
-    ${g ? `<p class="gar">⌚ From Garmin${g.src === 'manual' ? ' (typed in)' : ' (synced)'}: <b>${kc(g.kcal)} kcal</b>${g.active ? `, of that ${kc(g.active)} active` : ''}${g.steps ? `, ${kc(g.steps)} steps` : ''}. Steps and sports below are already included, so nothing is added on top. <button class="ghost" data-act="delBurn" data-id="${day}">Remove</button></p>
-      <details><summary class="muted">Estimate without Garmin: ${kc(burn.est)} kcal</summary>${lines}</details>`
-    : `${lines}<p class="muted fhelp">This is an estimate. Sports come from the Sports page${burn.sp.length ? '' : ' (nothing logged this day)'}.</p>`}
-    <form class="row" data-form="setSteps"><input type="hidden" name="date" value="${day}"><input type="number" name="steps" min="0" step="1" placeholder="steps" value="${stepsOn(w, day) || ''}" aria-label="Steps"><button>${sg ? 'Save steps' : 'Start tracking steps'}</button></form>
-    <form class="row" data-form="setBurn"><input type="hidden" name="date" value="${day}"><input type="number" name="kcal" min="500" max="9000" step="1" placeholder="Garmin total kcal" value="${g?.src === 'manual' ? g.kcal : ''}" aria-label="Total calories burned from Garmin"><button>Save Garmin kcal</button>${H().garminOn?.[w] ? '<button type="button" class="ghost" data-act="garminSync">↻ Sync Garmin</button>' : ''}</form>
-    <p class="muted fhelp">Garmin Connect app → today → <i>Calories</i>: type the <b>total</b> (resting + active). It replaces the estimate.</p></div>`;
+  const lines = [`<div class="fooditem"><span class="grow">Resting + daily life</span><span>${kc(burn.rest)}</span></div>`,
+    `<div class="fooditem"><span class="grow">Steps <small class="muted">${burn.steps ? kc(burn.steps) : 'none yet'}</small></span><span>${kc(burn.stepK)}</span></div>`,
+    ...burn.sp.map(x => `<div class="fooditem"><span class="grow">${esc(x.s.type)} <small class="muted">${x.s.gk?.[w] ? '⌚ ' : ''}${hm(+x.s.mins || 0)}${x.skip ? ' · in steps' : ''}</small></span><span>${x.skip ? '–' : kc(x.kcal)}</span></div>`)].join('');
+  const tiles = g ? `<div class="btiles"><div><small>total</small><b>${kc(g.kcal)}</b></div><div><small>active</small><b>${g.active ? kc(g.active) : '–'}</b></div><div><small>steps</small><b>${g.steps ? kc(g.steps) : '–'}</b></div></div>` : '';
+  return `<div class="card burn" data-w="${w}"><div class="chead"><h3>🔥 Burned</h3><b>${kc(burn.total)} kcal</b></div>
+    ${g ? `${tiles}<p class="muted gar">⌚ ${g.src === 'manual' ? 'Typed from Garmin' : 'Synced from Garmin'}${day === t ? ', still growing today' : ''}. Steps and workouts are included.${H().garminOn?.[w] ? ' <button class="ghost" data-act="garminSync">↻ Sync</button>' : ''}</p>${burn.sp.length ? `<div class="bsp">${burn.sp.map(x => `<span class="chip">${esc(x.s.type)} · ${hm(+x.s.mins || 0)}${x.s.gk?.[w] ? ` · ${kc(x.s.gk[w])} kcal` : ''}</span>`).join('')}</div>` : ''}`
+      : `${lines}<p class="muted fhelp">Estimate from steps and the Sports page.${H().garminOn?.[w] ? ' <button class="ghost" data-act="garminSync">↻ Sync Garmin</button>' : ''}</p>`}
+    <details class="bman"><summary class="muted">Enter by hand</summary>
+      <form class="row" data-form="setSteps"><input type="hidden" name="date" value="${day}"><input type="number" name="steps" min="0" step="1" placeholder="steps" value="${stepsOn(w, day) || ''}" aria-label="Steps"><button>${sg ? 'Save steps' : 'Track steps'}</button></form>
+      <form class="row" data-form="setBurn"><input type="hidden" name="date" value="${day}"><input type="number" name="kcal" min="500" max="9000" step="1" placeholder="Garmin total kcal" value="${g?.src === 'manual' ? g.kcal : ''}" aria-label="Total calories burned from Garmin"><button>Save total</button>${g ? `<button type="button" class="ghost" data-act="delBurn" data-id="${day}">Use estimate</button>` : ''}</form></details></div>`;
 }
 
 function profileForm(w, p = {}) {
@@ -207,13 +217,27 @@ function historyCard(w, b) {
 
 /* food suggestions while typing */
 const normTxt = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+let offTimer = null, offSeq = 0;
+const hitBtn = (f, i) => `<button type="button" data-act="foodPick" data-id="${i}"><span>${esc(f.name)}</span><small>${f.k100 ? kc(f.k100) + ' kcal/100 g' : ''}${f.g ? ` · ${esc(f.label || f.g + ' g')} ${kc(f.kcal ?? f.k100 * f.g / 100)} kcal` : ''}${f.m100 ? ` · P ${mfmt(f.m100[0])} C ${mfmt(f.m100[1])} F ${mfmt(f.m100[2])}` : ''}</small></button>`;
+/* Typing shows: your own foods, the built-in list (incl. Czech dishes) and, after a short pause,
+   packaged products from Open Food Facts (a free product database with many Czech products). */
 function showFoodHits(q) {
   const box = document.getElementById('fhits'); if (!box) return;
-  const n = normTxt(q).trim(); if (n.length < 2) { box.innerHTML = ''; return; }
-  const mine = H().myFoods.filter(f => normTxt(f.name).includes(n)).map(f => ({ name: f.name, k100: f.k100, g: f.g, label: f.g ? f.g + ' g' : 'portion', kcal: f.kcal, m100: f.m100, mp: f.mp }));
-  const base = FOODS.filter(f => normTxt(f[0]).includes(n)).map(([name, k100, g, label, m100]) => ({ name, k100, g, label, m100 }));
-  foodHits = [...mine, ...base].slice(0, 8);
-  box.innerHTML = foodHits.map((f, i) => `<button type="button" data-act="foodPick" data-id="${i}"><span>${esc(f.name)}</span><small>${f.k100 ? kc(f.k100) + ' kcal/100 g · ' : ''}${esc(f.label)} ${kc(f.kcal ?? f.k100 * f.g / 100)} kcal</small></button>`).join('');
+  const n = normTxt(q).trim(); clearTimeout(offTimer); if (n.length < 2) { box.innerHTML = ''; return; }
+  const words = n.split(/\s+/), hit = name => words.every(x => normTxt(name).includes(x));
+  const mine = H().myFoods.filter(f => hit(f.name)).map(f => ({ name: f.name, k100: f.k100, g: f.g, label: f.g ? f.g + ' g' : 'portion', kcal: f.kcal, m100: f.m100, mp: f.mp }));
+  const base = FOODS.filter(f => hit(f[0])).map(([name, k100, g, label, m100]) => ({ name, k100, g, label, m100 }));
+  foodHits = [...mine, ...base].slice(0, 7);
+  const local = foodHits.map(hitBtn).join('');
+  box.innerHTML = local + (n.length >= 3 ? '<div class="fhsec">Searching products online…</div>' : '');
+  if (n.length < 3) return;
+  const seq = ++offSeq;
+  offTimer = setTimeout(async () => {
+    const found = await offFetch(q).catch(() => null);
+    if (seq !== offSeq || !document.getElementById('fhits')) return;
+    const start = foodHits.length; foodHits = foodHits.concat(found || []);
+    document.getElementById('fhits').innerHTML = local + (found?.length ? `<div class="fhsec">Products online</div>${found.map((f, i) => hitBtn(f, start + i)).join('')}` : !foodHits.length ? '<div class="fhsec">Not found. Type the kcal from the packaging, or ask Claude.</div>' : '');
+  }, 550);
 }
 function fillFood(f) {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ''; };
@@ -234,29 +258,20 @@ document.addEventListener('input', e => {
   if (e.target.id === 'fg') { const k = +document.getElementById('fk100')?.value; if (k && e.target.value) document.getElementById('fkcal').value = Math.round(k * e.target.value / 100); fillMacros(+e.target.value); }
 });
 /* Open Food Facts: free product database (also Czech products), no account needed */
-async function offSearch() {
-  const q = document.getElementById('fname')?.value.trim();
-  if (!q || q.length < 2) { toast('Type a product name first, e.g. "Activia" or "Kaufland skyr".'); return; }
-  toast('Searching…');
-  try {
-    const r = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,brands,nutriments,serving_quantity`);
-    const d = await r.json();
-    offHits = (d.products || []).map(p => { const n = p.nutriments || {}, has = ['proteins_100g', 'carbohydrates_100g', 'fat_100g'].some(k => n[k] != null);
-      return { name: [p.product_name, p.brands?.split(',')[0]].filter(Boolean).join(' · '), k100: Math.round(n['energy-kcal_100g'] || 0), g: Math.round(+p.serving_quantity || 0) || null,
-        m100: has ? [+n.proteins_100g || 0, +n.carbohydrates_100g || 0, +n.fat_100g || 0].map(v => Math.round(v * 10) / 10) : null }; })
-      .filter(p => p.name && p.k100).slice(0, 8);
-  } catch { offHits = []; toast('Online search is not available right now.'); }
-  const keep = document.getElementById('fname')?.value; render();
-  const el = document.getElementById('fname'); if (el) el.value = keep;
+async function offFetch(q) {
+  const r = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=10&fields=product_name,brands,nutriments,serving_quantity`);
+  const d = await r.json();
+  return (d.products || []).map(p => { const n = p.nutriments || {}, has = ['proteins_100g', 'carbohydrates_100g', 'fat_100g'].some(k => n[k] != null), g = Math.round(+p.serving_quantity || 0) || null;
+    return { name: [p.product_name, p.brands?.split(',')[0]].filter(Boolean).join(' · '), k100: Math.round(n['energy-kcal_100g'] || 0), g, label: g ? g + ' g' : '',
+      m100: has ? [+n.proteins_100g || 0, +n.carbohydrates_100g || 0, +n.fat_100g || 0].map(v => Math.round(v * 10) / 10) : null }; })
+    .filter(p => p.name && p.k100).slice(0, 6);
 }
 
 const HEALTH_ACTS = {
-  hwho: id => { hWho = +id; hEdit = false; offHits = null; },
-  hday: d => { const x = parse(hDay || iso(new Date())); x.setDate(x.getDate() + +d); const t = iso(new Date()); hDay = iso(x) > t ? t : iso(x); offHits = null; },
+  hwho: id => { hWho = +id; hEdit = false; },
+  hday: d => { const x = parse(hDay || iso(new Date())); x.setDate(x.getDate() + +d); const t = iso(new Date()); hDay = iso(x) > t ? t : iso(x); },
   hedit: () => { hEdit = !hEdit; },
   foodPick: i => { const f = foodHits[+i]; if (f) setTimeout(() => fillFood(f)); return 'keep'; },
-  offSearch: () => { offSearch(); return 'keep'; },
-  offPick: i => { const f = offHits?.[+i]; if (f) { offHits = null; setTimeout(() => fillFood(f)); } },
   foodAgain: id => { const f = H().food.find(x => x.id === id); if (f) H().food.push({ ...f, id: uid(), date: hDay || iso(new Date()), at: Date.now(), meal: f.meal }); },
   delFood: id => { H().food = H().food.filter(f => f.id !== id); },
   delWeight: id => { if (confirm('Remove this weight entry?')) H().weights = H().weights.filter(x => x.id !== id); },
@@ -291,7 +306,6 @@ const HEALTH_FORMS = {
       if (ex) Object.assign(ex, { k100, g, kcal }, nut); else mf.push({ id: uid(), name, k100, g, kcal, ...nut });
       if (mf.length > 150) mf.splice(0, mf.length - 150);
     }
-    offHits = null;
   },
   setSteps: d => {
     const w = hPerson(), v = Math.max(0, Math.round(+d.steps || 0));

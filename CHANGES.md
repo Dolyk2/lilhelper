@@ -2,6 +2,18 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.11 – 24 Nov 2026
+- **New Home:** the big card has two tabs: *Today* (days together, next special dates, weather) and *💌 Letters*. "Next 3 days" shows only events, special dates and to-dos due in the next 3 days. Memory photo and to-dos swapped; sports and goals became one compact "Today's activity" card; music has an "Open in Spotify" button; lists are small chips.
+- **Love letters:** one letter a day for each other, typed or written by hand with a finger or pen. Your partner's letter arrives as a sealed envelope; they get a notification. Older letters stay under "Earlier".
+- **Everything is visible to both of you.** Filters All / name / name / Both instead of "Only mine". Health has tabs for both of you.
+- **Fewer menu entries:** *Plans* (To-do · Lists · Notes) and *Activity* (Goals · Sports). To split them again, remove `group` from MODS in app.js.
+- **Nicer choices everywhere:** pill buttons instead of plain dropdowns for who / meal / type; the remaining dropdowns are styled.
+- **Goals:** pick an icon from a set of emojis.
+- **Health:** a tidy 2-column grid with equal card sizes; Garmin numbers as three tiles; typing by hand tucked away; food search now shows the built-in list (40 more Czech and everyday dishes) and packaged products online in the same list while you type.
+- **Finances:** the monthly bank CSV import is on top; adding by hand is tucked away; "Delete all payments" button.
+- **Cards (new):** a collectible card game from your photos. A daily pack, bonus packs for finishing all goals, logging a sport or writing a love letter, duplicates turn into sparkles. Photos from special dates are Legendary.
+- Settings: "Together since" date for the day counter.
+
 ## 1.10 – 12 Nov 2026
 - **Nutrients in Health:** every food can have protein, carbs and fat. They fill in by themselves from the built-in food list (all foods now have them), from online product search, and from foods you added before; or type them from the packaging. The day card shows three bars against your daily targets (protein 1.6 g per kg of goal weight, fat about 30 % of calories, carbs the rest), and each food shows its nutrients.
 - **Calories burned now follow your real day:** Health has a new "🔥 Burned" card. Without Garmin it adds up resting burn × 1.2 (normal daily life), steps above 3,000 (from the **Steps** goal) and every sport logged on the Sports page that day (standard MET values × your weight × minutes; for cycling and running the speed counts). Walks aren't counted twice when steps are logged.

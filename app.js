@@ -2,11 +2,12 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
-const APP_VERSION = '1.10', APP_DATE = '12 Nov 2026'; // bump this (and ?v= in index.html) with every change
+const APP_VERSION = '1.11', APP_DATE = '24 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
   lists: [{ id: 'l1', name: 'Shopping', items: [] }], milestones: [],
+  letters: [], since: '', game: {},
   health: { profiles: {}, food: [], weights: [], myFoods: [], days: {}, burn: {} }, money: { tx: [], budgets: {}, saveGoal: 0, rules: [] }
 };
 const clone = o => typeof structuredClone === 'function' ? structuredClone(o) : JSON.parse(JSON.stringify(o));
@@ -41,11 +42,13 @@ const owner = i => i == 2 ? 'Both' : S.names[i];
 const USER_IDX = { '83f1d5c3-def9-4184-b164-82e8344fae1d': 0, 'de5fe1c9-66ad-4403-9218-100052621177': 1 };
 let myIdx = null;
 const I = () => myIdx ?? (typeof me === 'function' ? me() : null) ?? 0; // the person using the app right now
-const mine = o => +(o ?? 2) === 2 || +o === I(); // personal things are shown only to their owner; "Both" to both
-const visTabs = (cur, act, count) => [['all', 'All'], ['mine', 'Only mine'], ['shared', 'Shared']].map(([id, txt]) => `<button class="${cur === id ? 'on' : ''}" data-act="${act}" data-id="${id}"${id === 'mine' ? ` data-w="${I()}"` : id === 'shared' ? ' data-w="2"' : ''}>${txt}${count ? ` <small>${count(id)}</small>` : ''}</button>`).join('');
-const visPick = (cur, o) => cur === 'mine' ? +o === I() : cur === 'shared' ? +(o ?? 2) === 2 : mine(o);
-const assignedNote = o => { if (+o !== 2 && +o !== I()) toast(`Added for ${S.names[+o]}. It's in their list, not yours.`); };
-const ownerOpts = (sel = 2) => [0, 1, 2].map(i => `<option value="${i}" ${i == sel ? 'selected' : ''}>${esc(owner(i))}</option>`).join('');
+/* Everything is visible to both of you. The filter chips (All / name / name / Both) only narrow the view. */
+const visTabs = (cur, act, count) => [['all', 'All'], ['0', S.names[0]], ['1', S.names[1]], ['2', 'Both']].map(([id, txt]) => `<button class="${cur === id ? 'on' : ''}" data-act="${act}" data-id="${id}"${id !== 'all' ? ` data-w="${id}"` : ''}>${esc(txt)}${count ? ` <small>${count(id)}</small>` : ''}</button>`).join('');
+const visPick = (cur, o) => cur === 'all' || String(+(o ?? 2)) === String(cur);
+/* Segmented choice (pill buttons) instead of a plain dropdown. opts: [[value, label, data-w?], …] */
+let segN = 0;
+const seg = (name, opts, sel, label = '') => `<div class="seg" role="radiogroup"${label ? ` aria-label="${esc(label)}"` : ''}>${opts.map(([v, t, w]) => { const id = `sg${++segN}`; return `<input type="radio" id="${id}" name="${name}" value="${esc(v)}" ${String(v) === String(sel) ? 'checked' : ''}><label for="${id}"${w != null ? ` data-w="${w}"` : ''}>${t}</label>`; }).join('')}</div>`;
+const whoSeg = (name = 'owner', sel = 2, label = 'Whose') => seg(name, [0, 1, 2].map(i => [i, esc(owner(i)), i]), sel, label);
 /* Same day and month in a given year; 29 Feb becomes 28 Feb in non-leap years. */
 const inYear = (d, y) => { const o = new Date(y, d.getMonth(), d.getDate()); if (o.getMonth() !== d.getMonth()) o.setDate(0); return o; };
 const nextOcc = m => {
@@ -77,64 +80,6 @@ const editBtn = id => `<button class="ghost" data-act="edit" data-id="${id}" ari
 const formBtns = `<button class="primary">Save</button><button type="button" data-act="cancel">Cancel</button>`;
 const hid = id => `<input type="hidden" name="id" value="${id}">`;
 
-function home() {
-  const t = iso(new Date()), t0 = today0();
-  const byTime = (a, b) => (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''));
-  const when = k => { const n = Math.round((parse(k) - t0) / 864e5); return n === 1 ? 'Tomorrow' : n < 7 ? parse(k).toLocaleDateString(undefined, { weekday: 'long' }) : fmtShort(k); };
-  const coming = S.events.filter(e => e.date > t).sort(byTime).slice(0, 5);
-  const open = S.tasks.filter(x => !x.done && mine(x.owner)).sort((a, b) => (a.due || '9').localeCompare(b.due || '9')).slice(0, 6);
-  const ms = S.milestones.map(m => ({ ...m, n: daysTo(m) })).filter(m => m.n >= 0).sort((a, b) => a.n - b.n).slice(0, 4);
-  const lst = S.lists.slice(0, 4).map(l => ({ name: l.name, owner: l.owner ?? 2, open: l.items.filter(i => !i.done) }));
-  /* music: your pinned playlist first; Shuffle goes through the others */
-  if (!S.songs.find(s => s.id === songId)) songId = (S.songs.find(s => s.pin) || S.songs[0])?.id ?? null;
-  const song = S.songs.find(s => s.id === songId);
-  if (!S.photos.find(p => p.id === homePhotoId)) homePhotoId = S.photos.length ? S.photos[Math.floor(Math.random() * S.photos.length)].id : null;
-  const hp = S.photos.find(p => p.id === homePhotoId);
-  const mon = S.sports.filter(s => s.date.startsWith(t.slice(0, 7)));
-  const wkStart = iso(new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() - ((t0.getDay() + 6) % 7)));
-  const tm = i => mon.filter(s => s.who == i || s.who == 2).reduce((a, s) => a + mins(s), 0);
-  const kmTot = mon.reduce((a, s) => a + kms(s), 0), mx = Math.max(tm(0), tm(1), 1);
-  const byT = {}; mon.forEach(s => byT[s.type] = (byT[s.type] || 0) + mins(s));
-  const topT = Object.entries(byT).sort((a, b) => b[1] - a[1])[0];
-  const head = (title, id) => `<div class="chead"><h3>${title}</h3><a href="#${id}">Open</a></div>`;
-  const hello = (h => h < 5 ? 'Good night' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening')(new Date().getHours());
-  const player = !song ? `<p class="muted">Tap “+ Add” and paste a Spotify link to a song, album or playlist.</p>`
-    : song.sid ? `<iframe class="spot" src="https://open.spotify.com/embed/${song.kind}/${song.sid}?theme=0" height="152" allow="encrypted-media; clipboard-write; autoplay" loading="lazy" title="Spotify player"></iframe>`
-    : `<div class="songt">${esc(song.title)}</div><p class="muted">${esc(song.artist)}</p><a class="btn" href="https://open.spotify.com/search/${encodeURIComponent(song.title + ' ' + song.artist)}" target="_blank" rel="noopener">Find on Spotify</a>`;
-  const [next, ...more] = ms;
-  const msDate = m => fmtShort(iso(nextOcc(m)));
-  return `<div class="homehead"><h2>${hello}, ${esc(S.names[0])} & ${esc(S.names[1])}</h2><span class="muted hdate">${fmt(t)}</span></div>
-  <div class="home">
-    <section class="card span hero"><div class="herogrid">
-      <div class="msbox"><h3>Special dates</h3>${next
-        ? `<div class="msnext"><div class="big">${next.n === 0 ? 'Today' : next.n}</div><div><p class="mst">${next.n === 0 ? '🎉 ' : next.n === 1 ? 'day until ' : 'days until '}<b>${esc(next.title)}</b></p><p class="msd">${msDate(next)}</p></div></div>
-          ${more.length ? `<ul class="mslist">${more.map(m => `<li><span class="grow">${esc(m.title)}</span><span class="msd">${msDate(m)}</span><b>${m.n === 0 ? 'today' : m.n + ' d'}</b></li>`).join('')}</ul>` : ''}
-          <a class="msall" href="#dates">All dates →</a>`
-        : `<p class="muted">Add an anniversary or birthday under <a href="#dates">Special dates</a>.</p>`}</div>
-      <div class="wxpanel" id="wxbox" aria-live="polite">${lastWx || '<h3>Weather</h3><p class="muted">Loading weather…</p>'}</div>
-    </div></section>
-    <section class="card">${head('Coming up', 'calendar')}${coming.length ? `<ul class="items evlist">${coming.map(e => `<li data-w="${e.who}"><div class="grow"><div class="evt">${esc(e.title)}</div><div class="evm">${when(e.date)}${e.time ? ' · ' + esc(e.time) : ''}${e.location ? ' · ' + esc(e.location) : ''}</div></div></li>`).join('')}</ul>` : `<p class="muted">No upcoming events.</p>`}</section>
-    <section class="card">${head('To-dos', 'tasks')}${open.length ? `<ul class="items evlist">${open.map(x => `<li data-w="${x.owner}"><div class="grow"><div class="evt">${esc(x.text)}</div>${x.due ? `<div class="evm">due ${fmtShort(x.due)}</div>` : ''}</div>${overdue(x) ? '<span class="tag warn">overdue</span>' : ''}</li>`).join('')}</ul>` : `<p class="muted">All done.</p>`}</section>
-    <section class="card memo">${hp && sb
-      ? `<button class="memophoto" onclick="openViewer('${hp.id}')" aria-label="Open photo"><img data-photo="${esc(hp.path)}" alt="Memory from ${fmt(hp.date)}"></button><div class="memocap"><span>${fmt(hp.date)}</span></div>`
-      : `<div class="memoempty"><h3>Memory</h3><p class="muted">Add photos to a day in the Calendar. They show here and change every few seconds.</p></div>`}</section>
-    <section class="card music" data-hl="${song?.id || ''}"><div class="chead"><h3>${song?.pin ? esc(song.title || 'Our playlist') : 'Our music'}</h3>${S.songs.length > 1 ? `<span class="muted">${S.songs.findIndex(x => x.id === songId) + 1} / ${S.songs.length}</span>` : ''}</div>${player}
-      <div class="mbtns">${S.songs.length > 1 ? '<button class="ghost" onclick="nextSong()" aria-label="Next song or playlist">⇄ Next</button>' : ''}<button class="ghost" onclick="songAdd=!songAdd;render()">${songAdd ? 'Close' : '+ Add music'}</button></div>
-      ${songAdd ? `<form class="row" data-form="addSong" style="margin:.6rem 0 0"><input type="text" name="url" placeholder="Paste a Spotify link" required aria-label="Spotify link"><button class="primary">Add</button></form>` : ''}
-      ${song && songAdd ? `<button class="ghost" data-act="delSong" data-id="${song.id}">Remove this one</button>` : ''}</section>
-    <section class="card">${head('Sports this month', 'sports')}${mon.length
-      ? `<div class="sportrow"><div class="big">${hm(tm(0) + tm(1))}</div><span class="muted">combined</span></div>
-        ${[0, 1].map(i => `<div class="bar" data-w="${i}"><span>${esc(S.names[i])}</span><div><i style="width:${Math.round(tm(i) / mx * 100)}%"></i></div><b>${hm(tm(i))}</b></div>`).join('')}
-        <div class="chips"><span class="chip"><b>${mon.length}</b> activities</span><span class="chip"><b>${S.sports.filter(s => s.date >= wkStart).length}</b> this week</span>${kmTot ? `<span class="chip"><b>${kmTot.toFixed(0)}</b> km</span>` : ''}${topT ? `<span class="chip">top <b>${esc(topT[0])}</b></span>` : ''}</div>`
-      : `<p class="muted">Nothing logged this month.</p>`}</section>
-    <section class="card">${head('Goals today', 'goals')}${S.goals.length
-      ? `<div class="hgoals">${[0, 1].map(w => `<a href="#goals" class="hgoal" data-w="${w}">${donut(dayScore(w, t), 92, 10, Math.round(dayScore(w, t) * 100) + '%')}<span>${esc(S.names[w])}</span></a>`).join('')}</div>
-        <p class="muted hgl">${S.goals.map(g => esc(g.icon)).join(' ')} ${S.goals.length} daily goals</p>`
-      : `<p class="muted">No goals yet.</p>`}</section>
-    <section class="card span2">${head('Lists', 'lists')}<div class="listgrid">${lst.length ? lst.map(l => `<a class="mini" href="#lists" data-w="${l.owner}"><strong>${esc(l.name)}</strong> <span class="tag who">${l.open.length || '✓'}</span><div class="muted">${l.open.length ? esc(l.open.slice(0, 3).map(i => i.text).join(', ')) + (l.open.length > 3 ? '…' : '') : 'All done'}</div></a>`).join('') : `<p class="muted">No lists yet.</p>`}</div></section>
-  </div>`;
-}
-
 function calendar() {
   const first = new Date(cal.y, cal.m, 1), off = (first.getDay() + 6) % 7, n = new Date(cal.y, cal.m + 1, 0).getDate();
   const t = iso(new Date());
@@ -152,7 +97,7 @@ function calendar() {
   const evs = S.events.filter(e => e.date === cal.sel).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
   const title = first.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const evLi = e => editing === e.id
-    ? `<li><form class="row editing" data-form="saveEvent">${hid(e.id)}<input type="text" name="title" value="${esc(e.title)}" required aria-label="Event title"><input type="date" name="date" value="${e.date}" required aria-label="Date"><input type="time" name="time" value="${esc(e.time || '')}" aria-label="Time"><input type="text" name="location" value="${esc(e.location || '')}" placeholder="Place" aria-label="Place"><select name="who" aria-label="Who">${ownerOpts(e.who)}</select>${formBtns}</form></li>`
+    ? `<li><form class="row editing" data-form="saveEvent">${hid(e.id)}<input type="text" name="title" value="${esc(e.title)}" required aria-label="Event title"><input type="date" name="date" value="${e.date}" required aria-label="Date"><input type="time" name="time" value="${esc(e.time || '')}" aria-label="Time"><input type="text" name="location" value="${esc(e.location || '')}" placeholder="Place" aria-label="Place">${whoSeg('who', e.who, 'Who')}${formBtns}</form></li>`
     : `<li data-w="${e.who}" data-hl="${e.id}"><span class="grow">${esc(e.title)}${e.location ? ` <span class="muted">at ${esc(e.location)}</span>` : ''}</span><span class="muted">${esc(e.time || 'all day')}</span><span class="tag who">${esc(owner(e.who))}</span>${editBtn(e.id)}<button class="ghost" data-act="delEvent" data-id="${e.id}" aria-label="Delete event">✕</button></li>`;
   const ph = S.photos.filter(p => p.date === cal.sel).sort((a, b) => a.at - b.at);
   const dayMs = S.milestones.filter(m => onDay(m, cal.sel));
@@ -167,27 +112,26 @@ function calendar() {
     <ul class="items">${evs.map(evLi).join('') || '<li class="muted">No events this day.</li>'}</ul>
     <form class="row addev" data-form="addEvent"><input type="text" name="title" placeholder="Add an event on this day…" required aria-label="Event title">
       <input type="time" name="time" aria-label="Time"><input type="text" name="location" placeholder="Place (for weather)" aria-label="Place">
-      <select name="who" aria-label="Who">${ownerOpts()}</select><input type="hidden" name="date" value="${cal.sel}"><button class="primary">Add</button></form></div>${memories}</div></div>`;
+      ${whoSeg('who', 2, 'Who')}<input type="hidden" name="date" value="${cal.sel}"><button class="primary">Add</button></form></div>${memories}</div></div>`;
 }
 
 function tasks() {
   const li = x => editing === x.id
-    ? `<li><form class="row editing" data-form="saveTask">${hid(x.id)}<input type="text" name="text" value="${esc(x.text)}" required aria-label="To-do"><select name="owner" aria-label="Who">${ownerOpts(x.owner)}</select><input type="date" name="due" value="${x.due || ''}" aria-label="Due date">${formBtns}</form></li>`
+    ? `<li><form class="row editing" data-form="saveTask">${hid(x.id)}<input type="text" name="text" value="${esc(x.text)}" required aria-label="To-do">${whoSeg('owner', x.owner, 'Who')}<input type="date" name="due" value="${x.due || ''}" aria-label="Due date">${formBtns}</form></li>`
     : `<li data-w="${x.owner}" data-hl="${x.id}" class="${x.done ? 'done' : ''}"><input type="checkbox" ${x.done ? 'checked' : ''} data-act="toggleTask" data-id="${x.id}" aria-label="Done">
     <span class="grow">${esc(x.text)} ${x.due ? `<span class="muted">due ${fmt(x.due)}</span>` : ''}</span>${overdue(x) ? '<span class="tag warn">overdue</span>' : ''}${editBtn(x.id)}<button class="ghost" data-act="delTask" data-id="${x.id}" aria-label="Delete to-do">✕</button></li>`;
   const byDue = (a, b) => (a.done - b.done) || (a.due || '9').localeCompare(b.due || '9');
-  /* you see your own to-dos and the shared ones; your partner's personal ones stay theirs */
-  const ws = taskWho === 'mine' ? [I()] : taskWho === 'shared' ? [2] : [I(), 2];
+  const ws = taskWho === 'all' ? [2, 0, 1] : [+taskWho];
   const groups = ws.map(w => [w, S.tasks.filter(x => +x.owner === w).sort(byDue)]).filter(([, l]) => l.length);
   const count = id => S.tasks.filter(x => !x.done && visPick(id, x.owner)).length;
   return `<h2>To-do</h2>
   <form class="card row" data-form="addTask"><h3 style="flex-basis:100%;margin:0">New to-do</h3>
     <input type="text" name="text" placeholder="What needs doing?" required aria-label="To-do">
-    <select name="owner" aria-label="For whom">${ownerOpts(I())}</select>
+    ${whoSeg('owner', I(), 'For whom')}
     <input type="date" name="due" aria-label="Due date">
     <button class="primary">Add to-do</button></form>
   <div class="tabs">${visTabs(taskWho, 'twho', count)}</div>
-  ${groups.map(([w, l]) => `<div class="card tgroup" data-w="${w}"><div class="chead"><h3><i class="wdot"></i>${w === 2 ? 'Shared' : 'Mine'}</h3><span class="muted">${l.filter(x => !x.done).length} open${l.some(x => x.done) ? `, ${l.filter(x => x.done).length} done` : ''}</span></div>
+  ${groups.map(([w, l]) => `<div class="card tgroup" data-w="${w}"><div class="chead"><h3><i class="wdot"></i>${w === 2 ? 'Together' : esc(S.names[w])}</h3><span class="muted">${l.filter(x => !x.done).length} open${l.some(x => x.done) ? `, ${l.filter(x => x.done).length} done` : ''}</span></div>
     <ul class="items">${l.map(li).join('')}</ul></div>`).join('') || '<div class="card"><p class="muted">Nothing here yet.</p></div>'}
   ${S.tasks.some(x => x.done) ? '<p><button data-act="clearDone">Clear all done</button></p>' : ''}`;
 }
@@ -196,11 +140,11 @@ function notes() {
   const own = n => n.owner ?? 2; // notes made before owners existed belong to both
   const sorted = [...S.notes].filter(n => visPick(noteWho, own(n))).sort((a, b) => (b.pin - a.pin) || b.at - a.at);
   const card = n => editing === n.id
-    ? `<form class="card editing" data-form="saveNote">${hid(n.id)}<div class="row" style="display:flex;gap:.55rem;margin-bottom:.5rem"><input type="text" name="title" value="${esc(n.title)}" placeholder="Title (optional)" aria-label="Title"><select name="owner" aria-label="Whose note">${ownerOpts(own(n))}</select></div><textarea name="body" required aria-label="Note">${esc(n.body)}</textarea><p>${formBtns}</p></form>`
+    ? `<form class="card editing" data-form="saveNote">${hid(n.id)}<div class="row" style="display:flex;gap:.55rem;margin-bottom:.5rem"><input type="text" name="title" value="${esc(n.title)}" placeholder="Title (optional)" aria-label="Title">${whoSeg('owner', own(n), 'Whose note')}</div><textarea name="body" required aria-label="Note">${esc(n.body)}</textarea><p>${formBtns}</p></form>`
     : `<article class="card note ${n.pin ? 'pin' : ''}" data-w="${own(n)}" data-hl="${n.id}"><div class="chead"><h3>${n.pin ? '📌 ' : ''}${esc(n.title || 'Untitled')}</h3><span class="tag who">${esc(owner(own(n)))}</span></div><div>${esc(n.body)}</div>
     <p class="muted">${new Date(n.at).toLocaleDateString()} ${editBtn(n.id)}<button class="ghost" data-act="pinNote" data-id="${n.id}">${n.pin ? 'Unpin' : 'Pin'}</button><button class="ghost" data-act="delNote" data-id="${n.id}">Delete</button></p></article>`;
   return `<h2>Notes</h2>
-  <form class="card" data-form="addNote"><div style="display:flex;gap:.55rem;margin-bottom:.5rem;flex-wrap:wrap"><input type="text" name="title" placeholder="Title (optional)" aria-label="Title"><select name="owner" aria-label="Whose note">${ownerOpts(I())}</select></div>
+  <form class="card" data-form="addNote"><div style="display:flex;gap:.55rem;margin-bottom:.5rem;flex-wrap:wrap"><input type="text" name="title" placeholder="Title (optional)" aria-label="Title">${whoSeg('owner', I(), 'Whose note')}</div>
     <textarea name="body" placeholder="Gift ideas, things she said she likes, places to try…" required aria-label="Note"></textarea><p><button class="primary">Save note</button></p></form>
   ${S.notes.length ? `<div class="tabs">${visTabs(noteWho, 'nwho')}</div>` : ''}
   ${sorted.map(card).join('') || (S.notes.length ? '<p class="muted">Nothing here.</p>' : '')}`;
@@ -213,11 +157,11 @@ function lists() {
     ? `<li><form class="row editing" data-form="saveItem">${hid(i.id)}<input type="text" name="text" value="${esc(i.text)}" required aria-label="Item">${formBtns}</form></li>`
     : `<li data-hl="${i.id}" class="${i.done ? 'done' : ''}"><input type="checkbox" ${i.done ? 'checked' : ''} data-act="toggleItem" data-id="${i.id}" aria-label="Done"><span class="grow">${esc(i.text)}</span>${editBtn(i.id)}<button class="ghost" data-act="delItem" data-id="${i.id}" aria-label="Delete item">✕</button></li>`;
   const foot = cur && (editing === cur.id
-    ? `<form class="row editing" data-form="saveList">${hid(cur.id)}<input type="text" name="name" value="${esc(cur.name)}" required aria-label="List name"><select name="owner" aria-label="Whose list">${ownerOpts(cur.owner ?? 2)}</select>${formBtns}</form>`
+    ? `<form class="row editing" data-form="saveList">${hid(cur.id)}<input type="text" name="name" value="${esc(cur.name)}" required aria-label="List name">${whoSeg('owner', cur.owner ?? 2, 'Whose list')}${formBtns}</form>`
     : `<p>${editBtn(cur.id).replace('>Edit<', '>Rename list<')}<button class="ghost" data-act="delList" data-id="${cur.id}">Delete this list</button></p>`);
   return `<h2>Lists</h2><p class="muted">Shopping, movies to watch, places to visit, bucket list.</p>
   <div class="tabs">${S.lists.map(l => `<button class="${l.id === listTab ? 'on' : ''}" data-act="tab" data-id="${l.id}" data-w="${l.owner ?? 2}">${esc(l.name)}</button>`).join('')}</div>
-  <form class="row" data-form="addList"><input type="text" name="name" placeholder="New list name" required aria-label="List name"><select name="owner" aria-label="Whose list">${ownerOpts(2)}</select><button>Create list</button></form>
+  <form class="row" data-form="addList"><input type="text" name="name" placeholder="New list name" required aria-label="List name">${whoSeg('owner', 2, 'Whose list')}<button>Create list</button></form>
   ${cur ? `<div class="card"><form class="row" data-form="addItem"><input type="text" name="text" placeholder="Add to ${esc(cur.name)}" required aria-label="Item"><button class="primary">Add</button></form>
     <ul class="items">${cur.items.map(item).join('') || '<li class="muted">Empty list.</li>'}</ul>${foot}</div>` : ''}`;
 }
@@ -238,7 +182,8 @@ const calCode = v => { v = (v || '').trim(); const m = v.match(/[?&]token=([^&\s
 const calLink = () => `${CFG.SUPABASE_URL}/functions/v1/calendar?token=${encodeURIComponent(calCode(S.calToken))}`;
 function settings() {
   return `<h2>Settings</h2>
-  <form class="card" data-form="names"><h3>Names</h3><div class="row"><input type="text" name="a" value="${esc(S.names[0])}" aria-label="Your name"><input type="text" name="b" value="${esc(S.names[1])}" aria-label="Partner's name"><button class="primary">Save names</button></div></form>
+  <form class="card" data-form="names"><h3>Us</h3><div class="row"><input type="text" name="a" value="${esc(S.names[0])}" aria-label="First name"><input type="text" name="b" value="${esc(S.names[1])}" aria-label="Second name"></div>
+    <div class="row"><label class="muted">Together since <input type="date" name="since" value="${esc(S.since || '')}"></label><button class="primary">Save</button></div></form>
   ${sb ? `<div class="card"><h3>Phone calendar</h3><p class="muted">Keep your secret code here instead of a note. Both of you can see it after logging in.</p>
     <form class="row" data-form="saveToken"><input type="text" name="token" value="${esc(calCode(S.calToken))}" placeholder="Calendar code (CAL_TOKEN)" aria-label="Calendar code"><button class="primary">Save</button></form>
     ${S.calToken ? `<p class="muted" style="word-break:break-all">${esc(calLink())}</p><button onclick="copyText(this.dataset.t)" data-t="${esc(calLink())}">Copy link</button> <button onclick="copyText(this.dataset.t)" data-t="${esc(calLink().replace('https://', 'webcal://'))}">Copy webcal link</button>` : ''}</div>` : ''}
@@ -250,23 +195,33 @@ function settings() {
   <p class="muted version">Version ${APP_VERSION} · ${APP_DATE}</p>`;
 }
 
+/* Pages. Pages with the same "group" share one menu entry and get small tabs on top
+   (To-do · Lists · Notes under "Plans", Goals · Sports under "Activity"). To split them
+   again, just remove the group field. */
+const GROUPS = { plans: { title: 'Plans', icon: 'tasks' }, activity: { title: 'Activity', icon: 'goals' } };
 const MODS = [
   { id: 'home', title: 'Home', render: home },
   { id: 'calendar', title: 'Calendar', render: calendar },
-  { id: 'tasks', title: 'To-do', render: tasks },
-  { id: 'notes', title: 'Notes', render: notes },
-  { id: 'lists', title: 'Lists', render: lists },
-  { id: 'goals', title: 'Goals', render: goals },
-  { id: 'sports', title: 'Sports', render: sports },
+  { id: 'tasks', title: 'To-do', render: tasks, group: 'plans' },
+  { id: 'lists', title: 'Lists', render: lists, group: 'plans' },
+  { id: 'notes', title: 'Notes', render: notes, group: 'plans' },
+  { id: 'goals', title: 'Goals', render: goals, group: 'activity' },
+  { id: 'sports', title: 'Sports', render: sports, group: 'activity' },
   { id: 'health', title: 'Health', render: health },
   { id: 'money', title: 'Finances', render: moneyPage },
+  { id: 'cards', title: 'Cards', render: cardsPage },
   { id: 'dates', title: 'Special dates', short: 'Dates', render: dates },
   { id: 'settings', title: 'Settings', render: settings }
 ];
+const GROUP_KEY = KEY + '-groups';
+const lastSub = g => { const v = ls.get(GROUP_KEY)?.[g]; return MODS.find(m => m.id === v && m.group === g) || MODS.find(m => m.group === g); };
+/* menu entries: each page, but a group only once (opening its last-used tab) */
+const navItems = () => { const seen = new Set(); return MODS.filter(m => !m.group || (!seen.has(m.group) && seen.add(m.group))).map(m => m.group ? { id: lastSub(m.group).id, key: m.group, title: GROUPS[m.group].title, icon: GROUPS[m.group].icon, group: m.group } : { id: m.id, key: m.id, title: m.title, short: m.short, icon: m.id }); };
+const subTabs = m => !m.group ? '' : `<h2 class="grouph">${GROUPS[m.group].title}</h2><div class="subtabs" role="tablist">${MODS.filter(x => x.group === m.group).map(x => `<a href="#${x.id}" role="tab" aria-selected="${x.id === m.id}" class="${x.id === m.id ? 'on' : ''}">${x.title}</a>`).join('')}</div>`;
 
 /* ---------- actions (buttons/checkboxes) and forms ---------- */
 const A = {
-  ...HEALTH_ACTS, ...MONEY_ACTS,
+  ...HEALTH_ACTS, ...MONEY_ACTS, ...HOME_ACTS, ...CARD_ACTS,
   edit: id => { editing = id; },
   cancel: () => { editing = null; },
   pick: id => { cal.sel = id; setTimeout(() => { if (innerWidth <= 1000) view.querySelector('.daypanel')?.scrollIntoView({ behavior: 'smooth' }); }, 60); },
@@ -326,7 +281,7 @@ const F = {
   saveGoal: d => Object.assign(S.goals.find(x => x.id === d.id), { name: d.name.trim(), icon: (d.icon || '').trim() || '⭐', unit: d.unit.trim(), target: Math.max(+d.target || 1, 0.01), step: +d.step || 1, owner: +d.owner }),
   addSong: d => { const m = spotifyId(d.url); if (!m) { toast('That does not look like a Spotify link.'); return; } const id = uid(); S.songs.push({ id, kind: m[1], sid: m[2] }); songAdd = false; songId = id; },
   saveToken: d => { S.calToken = calCode(d.token); },
-  names: d => { S.names = [d.a.trim() || 'Me', d.b.trim() || 'Her']; }
+  names: d => { S.names = [d.a.trim() || 'Me', d.b.trim() || 'Her']; S.since = d.since || ''; }
 };
 
 const ICONS = {
@@ -339,6 +294,7 @@ const ICONS = {
   lists: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>',
   health: '<path d="M3 12h4l2-5 4 10 2-5h6"/>',
   money: '<rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 15h2"/>',
+  cards: '<rect x="4" y="3" width="12" height="17" rx="2"/><path d="M19 6.5l1.6.4-3.3 13.6-6.5-1.6"/><path d="M10 9.5l1.2 2.4 2.6.4-1.9 1.8.5 2.6-2.4-1.3"/>',
   dates: '<path d="M12 21s-8-5.3-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 5.7-8 11-8 11z"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'
 };
@@ -643,7 +599,8 @@ async function notifyTest() {
 /* [collection, label, text, page, whose it is (0, 1 or 2 = both)] */
 const KINDS = [['events', 'Calendar', x => x.title, 'calendar', x => x.who], ['tasks', 'To-do', x => x.text, 'tasks', x => x.owner], ['notes', 'Notes', x => x.title || x.body, 'notes', x => x.owner],
   ['milestones', 'Special dates', x => x.title, 'dates', () => 2], ['sports', 'Sports', x => x.type, 'sports', x => x.who], ['goals', 'Goals', x => x.name || x.text, 'goals', x => x.owner],
-  ['songs', 'Music', () => 'a song', 'home', () => 2], ['photos', 'Memories', () => 'a photo', 'calendar', () => 2]];
+  ['songs', 'Music', () => 'a song', 'home', () => 2], ['photos', 'Memories', () => 'a photo', 'calendar', () => 2],
+  ['letters', 'Love letter', () => 'a love letter for you 💌', 'home', x => 1 - x.from]];
 function addedItems(before, after) {
   const out = [], ids = a => new Set((Array.isArray(a) ? a : []).map(x => x.id));
   for (const [k, label, txt, page, whose] of KINDS) { const old = ids(before?.[k]); (after[k] || []).filter(x => !old.has(x.id)).forEach(x => out.push({ where: label, what: String(txt(x) || '').slice(0, 80), link: `#${page}/${x.id}`, own: +(whose(x) ?? 2) })); }
@@ -706,7 +663,7 @@ async function buildWeather() {
     const d = await wx(hLat, hLon), c = d.current, di = d.daily.time.indexOf(t);
     const nowH = d.hourly.time.indexOf(c.time.slice(0, 13) + ':00');
     const hours = [0, 2, 4, 6, 8, 10].map(o => nowH + o).filter(i => nowH >= 0 && i < d.hourly.time.length);
-    /* today's plans that haven't finished yet (anything started over 2 hours ago is hidden) */
+    /* today's plans that haven't finished yet: their weather feeds the tips (umbrella, cold) */
     const nowHM = new Date().getHours() * 60 + new Date().getMinutes();
     const plans = S.events.filter(e => e.date === t && (!e.time || +e.time.slice(0, 2) * 60 + +e.time.slice(3, 5) >= nowHM - 120))
       .sort((a, b) => (a.time || '').localeCompare(b.time || '')).slice(0, 4);
@@ -720,13 +677,10 @@ async function buildWeather() {
     const coldMin = Math.min(di >= 0 ? d.daily.temperature_2m_min[di] : 99, ...pw.filter(Boolean).map(w => w.min));
     const tips = [rainMax >= 50 && '☂️ Take an umbrella', coldMin <= 0 && '🧣 Freezing, wrap up warm', c.wind_speed_10m >= 35 && '💨 Very windy',
       di >= 0 && d.daily.temperature_2m_max[di] >= 28 && '🧴 Hot, sunscreen and water', rainMax < 20 && c.weather_code <= 2 && c.is_day && '😎 Nice day to go outside'].filter(Boolean).slice(0, 2);
-    const plansHtml = plans.length ? `<div class="wxplans">${plans.map((e, i) => { const w = pw[i]; return `<div class="wxplan" data-w="${e.who}"><span class="wxpt">${esc(e.time || 'all day')}</span><span class="grow">${esc(e.title)}<small>${esc(e.location || hName)}</small></span>${w ? `<span class="wxpw">${wxIcon(w.code, w.day)} <b>${w.temp}</b>${w.rain >= 20 ? ` <small>💧${w.rain}%</small>` : ''}</span>` : '<small>no forecast</small>'}</div>`; }).join('')}</div>`
-      : '<p class="wxnone">No plans today, the weather is all yours.</p>';
     lastWx = `<div class="wxtop"><span class="wxbig">${wxIcon(c.weather_code, c.is_day)}</span>
       <div><div class="wxtemp">${deg(c.temperature_2m)}</div><div class="wxdesc">${wxText(c.weather_code)} in ${esc(hName)}</div></div>
       <div class="wxmeta">${di >= 0 ? `<span>↑ ${deg(d.daily.temperature_2m_max[di])} ↓ ${deg(d.daily.temperature_2m_min[di])}</span><span>💧 ${d.daily.precipitation_probability_max[di]}% rain</span>` : ''}<span>feels ${deg(c.apparent_temperature)} · 💨 ${Math.round(c.wind_speed_10m)} km/h</span></div></div>
       <div class="wxhours">${hours.map((i, k) => `<div><small>${k ? d.hourly.time[i].slice(11, 16) : 'Now'}</small><span>${k ? wxIcon(d.hourly.weather_code[i], d.hourly.is_day[i]) : wxIcon(c.weather_code, c.is_day)}</span><b>${deg(k ? d.hourly.temperature_2m[i] : c.temperature_2m)}</b>${d.hourly.precipitation_probability[i] >= 30 ? `<small class="wxrain">${d.hourly.precipitation_probability[i]}%</small>` : ''}</div>`).join('')}</div>
-      <div class="wxsub"><h4>Today's plans</h4>${plansHtml}</div>
       ${tips.length ? `<div class="wxtips">${tips.map(x => `<span>${x}</span>`).join('')}</div>` : ''}
       <div class="wxfoot">${others.filter(Boolean).map(o => `<span>${esc(o.n)} ${wxIcon(o.c.weather_code, o.c.is_day)} <b>${deg(o.c.temperature_2m)}</b></span>`).join('')}${trip && tw ? `<span>${esc(trip.location)}, ${parse(trip.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} ${wxIcon(tw.code)} <b>${tw.temp}</b></span>` : ''}</div>`;
     const cur = view.querySelector('#wxbox'); if (cur) cur.innerHTML = lastWx;
@@ -736,7 +690,6 @@ async function buildWeather() {
     box.innerHTML = `<h3>Weather</h3><p class="wxnone">Weather is not available right now.</p>${plans.length ? `<div class="wxsub"><h4>Today's plans</h4><div class="wxplans">${plans.map(e => `<div class="wxplan" data-w="${e.who}"><span class="wxpt">${esc(e.time || 'all day')}</span><span class="grow">${esc(e.title)}</span></div>`).join('')}</div></div>` : ''}`;
   }
 }
-const fillWeather = buildWeather;
 async function geocodeEvent(e) {
   if (!e.location) return;
   try {
@@ -752,7 +705,7 @@ async function rotatePhoto() {
   img.style.opacity = 0;
   setTimeout(() => {
     img.onload = () => { img.style.opacity = 1; }; img.src = u;
-    const c = view.querySelector('.memocap span'); if (c) c.textContent = fmt(p.date);
+    const c = view.querySelector('.memocap span'); if (c) c.innerHTML = photoCap(p);
     view.querySelector('.memophoto')?.setAttribute('onclick', `openViewer('${p.id}')`);
   }, 450);
 }
@@ -822,14 +775,15 @@ function goals() {
   <div class="goalgrid">${S.goals.map(card).join('') || '<div class="card"><p class="muted">No goals yet. Add one below.</p></div>'}</div>
   <form class="card gform" data-form="addGoal"><h3>Add a goal</h3>${goalFields({ icon: '⭐', owner: 2, step: 1 })}<p><button class="primary">Add goal</button></p></form>`;
 }
-const goalFields = g => `<div class="row" style="display:flex;flex-wrap:wrap;gap:.55rem">
-  <input type="text" name="icon" value="${esc(g.icon || '')}" maxlength="4" aria-label="Icon (emoji)" style="flex:0 0 4rem;text-align:center">
+const GOAL_EMOJIS = ['⭐', '💧', '🧘', '📖', '🚶', '👟', '🏃', '🏋️', '🚴', '🏊', '🧠', '🥗', '🍎', '🥦', '🚭', '🍷', '😴', '🚿', '🧊', '☀️', '🦷', '💊', '📵', '✍️', '🎸', '🎨', '🧹', '💰', '🙏', '❤️'];
+const goalFields = g => `<div class="emopick">${seg('icon', [...new Set([g.icon || '⭐', ...GOAL_EMOJIS])].map(e => [e, e]), g.icon || '⭐', 'Icon')}</div>
+  <div class="row" style="display:flex;flex-wrap:wrap;gap:.55rem">
   <input type="text" name="name" value="${esc(g.name || '')}" placeholder="Name, e.g. Meditate" required aria-label="Name">
   <input type="number" name="target" value="${g.target ?? ''}" min="0.01" step="any" placeholder="Daily target" required aria-label="Daily target" style="width:8rem">
   <input type="text" name="unit" value="${esc(g.unit || '')}" placeholder="unit (min, L…)" required aria-label="Unit" style="flex:0 1 8rem">
   <input type="number" name="step" value="${g.step ?? 1}" min="0.01" step="any" aria-label="Amount added per tap" title="Amount added per tap" style="width:6rem">
-  <select name="owner" aria-label="Who tracks it">${ownerOpts(g.owner ?? 2)}</select></div>
-  <p class="muted" style="font-size:.82rem">Icon · name · daily target · unit · amount per tap · who tracks it</p>`;
+  ${whoSeg('owner', g.owner ?? 2, 'Who tracks it')}</div>
+  <p class="muted" style="font-size:.82rem">Name · daily target · unit · amount added per tap · who tracks it</p>`;
 
 /* ---------- sports ---------- */
 const SPORT_TYPES = ['Gym', 'Running', 'Walking', 'Hiking', 'Cycling', 'Swimming', 'Yoga', 'Skating', 'Football', 'Stretching'];
@@ -857,7 +811,7 @@ function sports() {
     <input type="date" name="date" value="${s.date || today}" required aria-label="Date">
     <input type="number" name="mins" min="1" placeholder="Minutes" value="${s.mins || ''}" aria-label="Minutes" style="width:6.5rem">
     <input type="number" name="km" min="0" step="0.1" placeholder="km" value="${s.km || ''}" aria-label="Distance in km" style="width:5.5rem">
-    <select name="who" aria-label="Who">${ownerOpts(s.who ?? 2)}</select>
+    ${whoSeg('who', s.who ?? 2, 'Who')}
     <input type="text" name="exercises" placeholder="Exercises (squats 3x10, bench 3x8…)" value="${esc(s.exercises || '')}" aria-label="Exercises" style="flex-basis:100%">
     <input type="text" name="note" placeholder="Note (how it felt, where…)" value="${esc(s.note || '')}" aria-label="Note" style="flex-basis:100%">`;
   const row = s => editing === s.id
@@ -884,7 +838,7 @@ function sports() {
 /* ---------- shell ---------- */
 const view = document.getElementById('view'), nav = document.getElementById('nav');
 let lastPage = null, moreOpen = false;
-const PHONE_MAIN = ['home', 'calendar', 'tasks', 'health', 'money']; // shown in the phone tab bar; the rest sit under "More"
+const PHONE_MAIN = ['home', 'calendar', 'plans', 'activity', 'health']; // shown in the phone tab bar; the rest sit under "More"
 /* Before showing a page from a link: make sure the item is visible (right day, right list, no filter). */
 function focusPrep(page, a, b) {
   if (page === 'calendar') { const x = S.events.find(e => e.id === a) || S.photos.find(p => p.id === a); if (x) goTo(x.date); }
@@ -893,6 +847,7 @@ function focusPrep(page, a, b) {
   if (page === 'notes') noteWho = 'all';
   if (page === 'sports') { sportRange = 'all'; sportWho = 'all'; }
   if (page === 'home' && S.songs.some(x => x.id === a)) songId = a;
+  if (page === 'home' && S.letters.some(x => x.id === a)) heroTab = 'letters';
   editing = null;
   return a;
 }
@@ -920,31 +875,35 @@ function render() {
   document.body.classList.toggle('locked', !authed);
   if (recovering && authed) { nav.innerHTML = ''; view.innerHTML = recoverView(); document.body.classList.add('locked'); return; }
   if (!authed) { nav.innerHTML = ''; view.innerHTML = loginView(); return; }
-  if (migrateGoals() | compactFood() | materializeRec()) save();
+  if (migrateGoals() | compactFood() | materializeRec() | checkPacks()) save();
   const [page, a, b] = location.hash.slice(1).split('/');
   const m = MODS.find(m => m.id === page) || MODS[0];
   const hl = a ? focusPrep(m.id, a, b) : null;
-  const link = x => `<a href="#${x.id}" class="${x.id === m.id ? 'on' : ''}${PHONE_MAIN.includes(x.id) ? ' pri' : ''}" aria-label="${x.title}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[x.id] || ''}</svg><span class="nl">${x.title}</span><span class="ns">${x.short || x.title}</span></a>`;
-  const extra = !PHONE_MAIN.includes(m.id);
-  nav.innerHTML = MODS.map(link).join('') + `<button class="navmore ${extra ? 'on' : ''}" data-act="more" aria-label="More pages" aria-expanded="${moreOpen}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span class="ns">${extra ? (m.short || m.title) : 'More'}</span></button>`
-    + `<div class="moresheet" ${moreOpen ? '' : 'hidden'}>${MODS.filter(x => !PHONE_MAIN.includes(x.id)).map(link).join('')}</div>`;
+  if (m.group) ls.set(GROUP_KEY, { ...(ls.get(GROUP_KEY) || {}), [m.group]: m.id });
+  const cur = m.group || m.id, items = navItems();
+  const link = x => `<a href="#${x.id}" class="${x.key === cur ? 'on' : ''}${PHONE_MAIN.includes(x.key) ? ' pri' : ''}" aria-label="${x.title}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[x.icon] || ''}</svg><span class="nl">${x.title}</span><span class="ns">${x.short || x.title}</span></a>`;
+  const extra = !PHONE_MAIN.includes(cur), curItem = items.find(x => x.key === cur);
+  nav.innerHTML = items.map(link).join('') + `<button class="navmore ${extra ? 'on' : ''}" data-act="more" aria-label="More pages" aria-expanded="${moreOpen}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span class="ns">${extra ? (curItem?.short || curItem?.title || 'More') : 'More'}</span></button>`
+    + `<div class="moresheet" ${moreOpen ? '' : 'hidden'}>${items.filter(x => !PHONE_MAIN.includes(x.key)).map(link).join('')}</div>`;
   document.body.classList.toggle('moreopen', moreOpen);
   document.getElementById('brand').textContent = S.names.join(' + ');
   const y = m.id === lastPage ? view.scrollTop : 0; // keep position on the same page, start at the top on a new one
   if (m.id !== lastPage) { editing = null; moreOpen = false; document.body.classList.remove('moreopen'); nav.querySelector('.moresheet')?.setAttribute('hidden', ''); }
   lastPage = m.id;
-  view.innerHTML = m.render();
+  let html = m.render();
+  if (m.group) html = html.replace(/^\s*<h2>[^<]*<\/h2>/, ''); // the group title and its tabs replace the page title
+  view.innerHTML = subTabs(m) + html;
   view.classList.toggle('onehome', m.id === 'home');
   view.scrollTop = y;
-  document.title = m.id === 'home' ? 'Us – our little helper' : `${m.title} · Us`;
+  document.title = m.id === 'home' ? 'Us – our little helper' : `${m.group ? GROUPS[m.group].title + ' · ' : ''}${m.title} · Us`;
   if (editing) view.querySelector('.editing input[type=text], .editing textarea')?.focus();
   if (a) { history.replaceState(null, '', '#' + m.id); if (hl) focusShow(hl); } // the link did its job; keep the address tidy
   else reflash();
   view.querySelectorAll('.tabs').forEach(t => { const on = t.querySelector('button.on'); if (on && t.scrollWidth > t.clientWidth) t.scrollLeft = on.offsetLeft - t.offsetLeft - (t.clientWidth - on.offsetWidth) / 2; }); // keep the selected tab visible on phones
-  hydrate(); fillWeather();
+  hydrate(); buildWeather();
   clearInterval(rotTimer); if (m.id === 'home' && sb && S.photos.length > 1) rotTimer = setInterval(rotatePhoto, 9000);
 }
-const UI_ONLY = new Set(['pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'twho', 'grange', 'hwho', 'hday', 'hedit', 'offPick', 'mmonth', 'mwho', 'mall', 'mbudgets', 'mrec', 'more', 'authMode', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
+const UI_ONLY = new Set(['htab', 'album', 'csort', 'pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'twho', 'grange', 'hwho', 'hday', 'hedit', 'mmonth', 'mwho', 'mall', 'mbudgets', 'mrec', 'more', 'authMode', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
 document.addEventListener('submit', e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
   if (f.dataset.form === 'login') { e.preventDefault(); login(new FormData(f)); return; }
@@ -962,7 +921,7 @@ document.addEventListener('submit', e => {
   }
   e.preventDefault();
   const fd = Object.fromEntries(new FormData(f));
-  try { F[f.dataset.form](fd); if (['addTask', 'addNote', 'saveTask', 'saveNote'].includes(f.dataset.form) && fd.owner != null) assignedNote(fd.owner); }
+  try { F[f.dataset.form](fd); }
   catch (err) { console.error(err); toast('That item was changed or removed on the other device.'); }
   editing = null; save(); render();
 });
