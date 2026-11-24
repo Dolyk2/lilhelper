@@ -2,6 +2,10 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.13 – 24 Nov 2026
+- Home is laid out in tidy rows of two cards with the same height (letters + photo, next 7 days + to-dos, activity + music), lists across the full width: no gaps.
+- **Finances are private again:** each of you sees only your own payments, standing orders, budgets and savings goal. Imports and manual payments are always yours.
+
 ## 1.12 – 24 Nov 2026
 - **New top of Home:** a weather card for where you are right now (asks for your location once; otherwise Prague) with colours that follow the weather, the next 12 hours with today's plans placed at their hour, a tip (umbrella, cold…), plus a countdown card for special dates and your days together.
 - Home shows the **next 7 days**; cards are only as tall as their content (two columns on a computer, one on a phone); list chips fill each row.

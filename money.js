@@ -25,8 +25,14 @@ const AUTO = {
   cash: 'atm|bankomat|vyber hotovost|vyber z bankomatu|cash withdrawal',
   savings: 'sporeni|sporici|savings|investic|portu|fondee|anycoin|penzijni|stavebni sporeni'
 };
-let mMonth = null, mWho = 'all', mShowAll = false, mEditBudgets = false, mRecForm = false;
+let mMonth = null, mShowAll = false, mEditBudgets = false, mRecForm = false;
 const M = () => (S.money ||= { tx: [], budgets: {}, saveGoal: 0, rules: [] });
+/* Finances are private: each of you sees only your own payments, standing orders and budgets.
+   (They still sit in the shared database, so this is privacy in the app, not encryption.) */
+const myMoney = x => +x.who === I();
+const MB = () => { const m = M(), per = (m.per ||= {});
+  if (!per[0] && !per[1] && (m.saveGoal || Object.keys(m.budgets || {}).length)) per[0] = { budgets: m.budgets || {}, saveGoal: m.saveGoal || 0 }; // older shared budgets were Jířa's
+  return (per[I()] ||= { budgets: {}, saveGoal: 0 }); };
 
 /* ---- standing orders: repeating payments (weekly, every 2 weeks, monthly, yearly) ---- */
 const FREQS = [['w', 'Every week', 52], ['2w', 'Every 2 weeks', 26], ['m', 'Every month', 12], ['y', 'Every year', 1]];
@@ -70,7 +76,7 @@ const recFields = r => `${seg('type', [['out', 'Pay'], ['in', 'Receive']], r.amo
   <label class="muted rl">first payment <input type="date" name="start" value="${r.start || ''}" required></label>
   <label class="muted rl">until (optional) <input type="date" name="end" value="${r.end || ''}"></label>
   <select name="cat" aria-label="Category"><option value="">auto category</option>${CATS.map(([c, n, i]) => `<option value="${c}" ${c === r.cat ? 'selected' : ''}>${i} ${n}</option>`).join('')}</select>
-  ${whoSeg('who', r.who ?? 2, 'Whose')}`;
+  <input type="hidden" name="who" value="${I()}">`;
 const money = v => new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(v);
 const monthKey = (d = new Date()) => iso(d).slice(0, 7);
 const monthName = k => new Date(+k.slice(0, 4), +k.slice(5) - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -84,7 +90,7 @@ function guessCat(desc, amount) {
   for (const [cat, words] of Object.entries(AUTO)) if (words.split('|').some(w => n.includes(w))) return cat;
   return 'other';
 }
-const inMonth = (k, who) => M().tx.filter(t => t.date.startsWith(k) && visPick(who, t.who));
+const inMonth = k => M().tx.filter(t => t.date.startsWith(k) && myMoney(t));
 function totals(txs) {
   const income = txs.filter(t => t.amount > 0 && t.cat !== 'transfer').reduce((a, t) => a + t.amount, 0);
   const spent = -txs.filter(t => t.amount < 0 && !['transfer', 'savings'].includes(t.cat)).reduce((a, t) => a + t.amount, 0);
@@ -100,27 +106,27 @@ function pie(parts, size = 170) {
 }
 
 function moneyPage() {
-  const k = mMonth || monthKey(), txs = inMonth(k, mWho), T = totals(txs), prev = totals(inMonth(shiftMonth(k, -1), mWho));
+  const k = mMonth || monthKey(), txs = inMonth(k), T = totals(txs), prev = totals(inMonth(shiftMonth(k, -1)));
   const cats = Object.entries(T.byCat).sort((a, b) => b[1] - a[1]);
-  const goal = +M().saveGoal || 0, keep = T.left;
-  const months = Array.from({ length: 6 }, (_, i) => shiftMonth(k, i - 5)), mt = months.map(m => totals(inMonth(m, mWho))), mmax = Math.max(1, ...mt.flatMap(x => [x.income, x.spent]));
+  const goal = +MB().saveGoal || 0, keep = T.left;
+  const months = Array.from({ length: 6 }, (_, i) => shiftMonth(k, i - 5)), mt = months.map(m => totals(inMonth(m))), mmax = Math.max(1, ...mt.flatMap(x => [x.income, x.spent]));
   const list = txs.slice().sort((a, b) => b.date.localeCompare(a.date) || a.amount - b.amount), shown = mShowAll ? list : list.slice(0, 25);
   const catSel = t => `<select class="catsel" data-txcat="${t.id}" aria-label="Category">${CATS.map(([c, n, i]) => `<option value="${c}" ${c === t.cat ? 'selected' : ''}>${i} ${n}</option>`).join('')}</select>`;
   /* standing orders I can see, and what is still due this month */
-  const recs = REC().filter(r => visPick(mWho, r.who)), tday = iso(new Date());
+  const recs = REC().filter(myMoney), tday = iso(new Date());
   const monthEnd = iso(new Date(+k.slice(0, 4), +k.slice(5), 0));
   const upcoming = k < monthKey() ? 0 : recs.filter(r => r.amount < 0).reduce((a, r) => a + occurrences(r, k === monthKey() ? iso(new Date(Date.now() + 864e5)) : k + '-01', monthEnd).length * r.amount, 0);
   const recOut = recs.filter(r => r.amount < 0).reduce((a, r) => a + perMonth(r), 0);
   const recRow = r => editing === r.id
     ? `<li><form class="row editing" data-form="saveRec">${hid(r.id)}${recFields(r)}${formBtns}</form></li>`
     : `<li data-w="${r.who}" data-hl="${r.id}"><div class="grow"><div class="evt">${CAT[r.cat]?.i || ''} ${esc(r.desc)}</div><div class="evm">${freqName(r.freq)}${nextPay(r) ? ` · next ${fmtShort(nextPay(r))}` : ' · finished'}${r.who == 2 ? ' · shared' : ''}</div></div><b class="${r.amount > 0 ? 'mpos' : ''}">${r.amount > 0 ? '+' : ''}${money(r.amount)}</b>${editBtn(r.id)}<button class="ghost" data-act="delRec" data-id="${r.id}" aria-label="Stop standing order">✕</button></li>`;
-  const lastImport = M().tx.reduce((a, t) => t.imp && (!a || t.imp > a) ? t.imp : a, null);
+  const lastImport = M().tx.filter(myMoney).reduce((a, t) => t.imp && (!a || t.imp > a) ? t.imp : a, null);
   return `<h2>Finances</h2>
   <div class="mtop"><div class="daynav"><button class="ghost" data-act="mmonth" data-id="-1" aria-label="Previous month">‹</button><strong>${monthName(k)}</strong><button class="ghost" data-act="mmonth" data-id="1" aria-label="Next month" ${k >= monthKey() ? 'disabled' : ''}>›</button></div>
-    <div class="tabs" style="margin:0">${visTabs(mWho, 'mwho')}</div></div>
+    <span class="muted">🔒 only you see your finances</span></div>
     <div class="card mimport"><div class="mimp"><div><h3>📥 Import the bank statement</h3><p class="muted">Export the month as CSV in your internet banking and choose it here.</p></div>
-      <div class="row"><select id="impWho" aria-label="Whose account">${[2, 0, 1].map(i => `<option value="${i}">${i === 2 ? 'Shared account' : esc(S.names[i]) + '’s account'}</option>`).join('')}</select><button class="primary" type="button" onclick="document.getElementById('csvfile').click()">Choose CSV</button><input type="file" id="csvfile" accept=".csv,text/csv,text/plain" hidden></div></div>
-      ${lastImport || M().tx.length ? `<p class="mimpx">${lastImport ? `<button class="ghost" data-act="undoImport" data-id="${lastImport}">Undo last import</button>` : ''}${M().tx.length ? `<button class="ghost" data-act="wipeMoney">Delete all payments</button>` : ''}</p>` : ''}</div>
+      <div class="row"><button class="primary" type="button" onclick="document.getElementById('csvfile').click()">Choose CSV</button><input type="file" id="csvfile" accept=".csv,text/csv,text/plain" hidden></div></div>
+      ${lastImport || M().tx.some(myMoney) ? `<p class="mimpx">${lastImport ? `<button class="ghost" data-act="undoImport" data-id="${lastImport}">Undo last import</button>` : ''}${M().tx.some(myMoney) ? `<button class="ghost" data-act="wipeMoney">Delete all payments</button>` : ''}</p>` : ''}</div>
   <div class="grid mgrid">
     <div class="card"><div class="muted">Income</div><div class="big mpos">${money(T.income)}</div></div>
     <div class="card"><div class="muted">Spent</div><div class="big">${money(T.spent)}</div>${upcoming < 0 ? `<div class="muted msmall">+ ${money(-upcoming)} in standing orders still to go out</div>` : ''}${prev.spent ? `<div class="muted msmall">${T.spent > prev.spent ? '▲' : '▼'} ${money(Math.abs(T.spent - prev.spent))} vs last month</div>` : ''}</div>
@@ -129,7 +135,7 @@ function moneyPage() {
   ${goal ? `<div class="card"><div class="chead"><h3>Savings goal</h3><span class="muted">${keep >= goal ? '🎉 reached: ' : ''}${money(Math.max(0, keep))} of ${money(goal)} left over this month</span></div><div class="bar" data-w="2"><span></span><div><i style="width:${Math.min(100, Math.max(0, keep / goal * 100)).toFixed(0)}%"></i></div><b>${Math.min(999, Math.max(0, Math.round(keep / goal * 100)))} %</b></div></div>` : ''}
   <div class="mcols">
     <div class="card"><h3>Where the money went</h3>${cats.length ? `<div class="mpie">${pie(cats.map(([c, v]) => ({ v, c: CAT[c].c, n: CAT[c].n })))}<div class="mpiec"><b>${money(T.spent)}</b><small>spent</small></div></div>
-      <div class="mcats">${cats.map(([c, v]) => { const lim = +M().budgets[c] || 0; return `<div class="mcat"><span class="mdot" style="background:${CAT[c].c}"></span><span class="grow">${CAT[c].i} ${CAT[c].n}</span><b>${money(v)}</b><small class="muted">${Math.round(v / T.spent * 100)} %</small>
+      <div class="mcats">${cats.map(([c, v]) => { const lim = +MB().budgets[c] || 0; return `<div class="mcat"><span class="mdot" style="background:${CAT[c].c}"></span><span class="grow">${CAT[c].i} ${CAT[c].n}</span><b>${money(v)}</b><small class="muted">${Math.round(v / T.spent * 100)} %</small>
         ${lim ? `<div class="mlim ${v > lim ? 'over' : ''}"><i style="width:${Math.min(100, v / lim * 100).toFixed(0)}%"></i><small>${v > lim ? `${money(v - lim)} over` : `${money(lim - v)} left`} of ${money(lim)}</small></div>` : ''}</div>`; }).join('')}</div>`
       : '<p class="muted">No spending this month yet. Import your bank statement or add expenses below.</p>'}</div>
     <div class="card"><h3>Last 6 months</h3><div class="mtrend">${months.map((m, i) => `<div class="mtm"><div class="mtb"><i class="inc" style="height:${(mt[i].income / mmax * 100).toFixed(0)}%" title="Income ${money(mt[i].income)}"></i><i class="out" style="height:${(mt[i].spent / mmax * 100).toFixed(0)}%" title="Spent ${money(mt[i].spent)}"></i></div><small>${new Date(+m.slice(0, 4), +m.slice(5) - 1).toLocaleDateString(undefined, { month: 'short' })}</small></div>`).join('')}</div>
@@ -139,7 +145,7 @@ function moneyPage() {
   <div class="card"><div class="chead"><h3>Transactions</h3><span class="muted">${list.length} this month</span></div>
     <details class="madd"><summary class="muted">+ Add a payment by hand</summary><form class="row" data-form="addTx">${seg('type', [['out', 'Spent'], ['in', 'Received']], 'out', 'Type')}<input type="number" name="amount" min="0.01" step="any" placeholder="Kč" required aria-label="Amount" style="max-width:8rem">
       <input type="text" name="desc" placeholder="What for? e.g. Lidl, rent" required aria-label="Description"><select name="cat" aria-label="Category"><option value="">auto category</option>${CATS.map(([c, n, i]) => `<option value="${c}">${i} ${n}</option>`).join('')}</select>
-      <input type="date" name="date" value="${k === monthKey() ? iso(new Date()) : k + '-01'}" aria-label="Date">${whoSeg('who', 2, 'Whose')}<button class="primary">Add</button></form></details>
+      <input type="date" name="date" value="${k === monthKey() ? iso(new Date()) : k + '-01'}" aria-label="Date"><input type="hidden" name="who" value="${I()}"><button class="primary">Add</button></form></details>
     <ul class="items txlist">${shown.map(t => `<li data-w="${t.who}" data-hl="${t.id}"><div class="grow"><div class="evt">${esc(t.desc)}</div><div class="evm">${fmtShort(t.date)}${t.who == 2 ? ' · shared' : ''}</div></div>${catSel(t)}<b class="${t.amount > 0 ? 'mpos' : ''}">${t.amount > 0 ? '+' : ''}${money(t.amount)}</b><button class="ghost" data-act="delTx" data-id="${t.id}" aria-label="Delete">✕</button></li>`).join('') || '<li class="muted">Nothing yet.</li>'}</ul>
     ${list.length > 25 ? `<button class="ghost" data-act="mall">${mShowAll ? 'Show fewer' : `Show all ${list.length}`}</button>` : ''}</div>
   <details class="card" ${mRecForm ? 'open' : ''}><summary class="chead"><h3>Standing orders</h3><span class="muted">${recs.length ? `${recs.length} · ${money(-recOut)} a month` : 'none'}</span></summary>
@@ -148,9 +154,9 @@ function moneyPage() {
     <ul class="items txlist">${recs.map(recRow).join('') || (mRecForm ? '' : '<li class="muted">No standing orders yet.</li>')}</ul></details>
   <div class="mcols">
     <div class="card"><div class="chead"><h3>Monthly budgets</h3><button class="ghost" data-act="mbudgets">${mEditBudgets ? 'Close' : 'Edit'}</button></div>
-      ${mEditBudgets ? `<form data-form="saveBudgets"><div class="pgrid">${SPEND_CATS.map(([c, n, i]) => `<label>${i} ${n}<input type="number" name="${c}" min="0" step="100" value="${M().budgets[c] || ''}" placeholder="no limit"></label>`).join('')}
-        <label>💰 Savings goal per month<input type="number" name="__save" min="0" step="500" value="${M().saveGoal || ''}" placeholder="e.g. 5000"></label></div><p><button class="primary">Save</button></p></form>`
-      : `<p class="muted">${Object.values(M().budgets).some(v => +v) ? Object.entries(M().budgets).filter(([, v]) => +v).map(([c, v]) => `${CAT[c]?.i} ${money(+v)}`).join(' · ') : 'Set a limit for categories you want to keep an eye on, e.g. Eating out 3 000 Kč, and a monthly savings goal.'}</p>`}</div>
+      ${mEditBudgets ? `<form data-form="saveBudgets"><div class="pgrid">${SPEND_CATS.map(([c, n, i]) => `<label>${i} ${n}<input type="number" name="${c}" min="0" step="100" value="${MB().budgets[c] || ''}" placeholder="no limit"></label>`).join('')}
+        <label>💰 Savings goal per month<input type="number" name="__save" min="0" step="500" value="${MB().saveGoal || ''}" placeholder="e.g. 5000"></label></div><p><button class="primary">Save</button></p></form>`
+      : `<p class="muted">${Object.values(MB().budgets).some(v => +v) ? Object.entries(MB().budgets).filter(([, v]) => +v).map(([c, v]) => `${CAT[c]?.i} ${money(+v)}`).join(' · ') : 'Set a limit for categories you want to keep an eye on, e.g. Eating out 3 000 Kč, and a monthly savings goal.'}</p>`}</div>
   </div>`;
 }
 
@@ -199,7 +205,7 @@ function importCSV(text, who) {
   if (iAmt < 0 && iOut < 0) return { error: 'Could not find the amount column in this file.' };
   const isAcct = c => /^nazev uctu|^nazev\s*\(?uctu|account name|^ucet$|ucet\b|iban|account|bic|swift|kod banky|bank code|cislo|variabil|konstant|specif|\bvs\b|\bks\b|\bss\b|mena|currency|zustatek|balance|typ|type|stav|state|kategorie|category|id/.test(c);
   const descCols = head.map((c, i) => [c, i]).filter(([c, i]) => i !== iDate && i !== iAmt && i !== iOut && i !== iIn && !isAcct(c) && /popis|zprava|nazev|protistran|obchodnik|merchant|description|poznamk|detail|message|counterparty|payee|misto|place|reference|uziv|note|text|predmet/.test(c)).map(([, i]) => i);
-  const seen = new Set(M().tx.map(t => `${t.date}|${t.amount}|${normTxt(t.desc)}`));
+  const seen = new Set(M().tx.filter(myMoney).map(t => `${t.date}|${t.amount}|${normTxt(t.desc)}`));
   const imp = Date.now(); let added = 0, dup = 0, bad = 0, replaced = 0;
   for (const r of rows.slice(h + 1)) {
     const date = parseDate(r[iDate]);
@@ -211,7 +217,7 @@ function importCSV(text, who) {
     const key = `${date}|${amount}|${normTxt(desc)}`;
     if (seen.has(key)) { dup++; continue; }
     seen.add(key);
-    const auto = M().tx.find(t => t.rec && t.amount === amount && Math.abs(parse(t.date) - parse(date)) <= 4 * 864e5);
+    const auto = M().tx.find(t => t.rec && myMoney(t) && t.amount === amount && Math.abs(parse(t.date) - parse(date)) <= 4 * 864e5);
     let cat = guessCat(desc, amount);
     if (auto) { cat = auto.cat; skipRec(auto); M().tx = M().tx.filter(t => t !== auto); replaced++; } // the real bank payment replaces the planned one
     M().tx.push({ id: uid(), date, amount, desc, cat, who, imp }); added++;
@@ -226,7 +232,7 @@ async function readCSVFile(file) {
 }
 document.addEventListener('change', async e => {
   if (e.target.id === 'csvfile' && e.target.files[0]) {
-    const who = +(document.getElementById('impWho')?.value ?? 2), file = e.target.files[0];
+    const who = I(), file = e.target.files[0];
     e.target.value = '';
     const r = importCSV(await readCSVFile(file), who);
     if (r.error) { alert(r.error); return; }
@@ -249,11 +255,10 @@ document.addEventListener('change', async e => {
 
 const MONEY_ACTS = {
   mmonth: n => { const k = shiftMonth(mMonth || monthKey(), +n); mMonth = k > monthKey() ? monthKey() : k; mShowAll = false; },
-  mwho: id => { mWho = id; },
   mall: () => { mShowAll = !mShowAll; },
   mbudgets: () => { mEditBudgets = !mEditBudgets; },
   mrec: () => { mRecForm = !mRecForm; },
-  wipeMoney: () => { const n = M().tx.length; if (n && confirm(`Delete all ${n} payments for both of you? Budgets, categories you taught and standing orders stay. This cannot be undone.`)) M().tx = []; },
+  wipeMoney: () => { const n = M().tx.filter(myMoney).length; if (n && confirm(`Delete all ${n} of your payments? Budgets and standing orders stay. This cannot be undone.`)) M().tx = M().tx.filter(t => !myMoney(t)); },
   delTx: id => { const t = M().tx.find(x => x.id === id); skipRec(t); M().tx = M().tx.filter(x => x.id !== id); },
   delRec: id => { const r = REC().find(x => x.id === id); if (r && confirm(`Stop "${r.desc}"? Payments already added stay in your transactions.`)) M().rec = REC().filter(x => x.id !== id); },
   undoImport: imp => { const n = M().tx.filter(t => String(t.imp) === String(imp)).length; if (confirm(`Remove the ${n} payments from the last import?`)) M().tx = M().tx.filter(t => String(t.imp) !== String(imp)); }
@@ -263,5 +268,5 @@ const MONEY_FORMS = {
   addRec: d => { const r = { id: uid(), ...recData(d) }; const t = iso(new Date()); r.from = r.start > t ? r.start : t; REC().push(r); mRecForm = false; },
   saveRec: d => { const r = REC().find(x => x.id === d.id); if (r) Object.assign(r, recData(d)); },
   addTx: d => { const amt = Math.abs(+d.amount) * (d.type === 'in' ? 1 : -1); M().tx.push({ id: uid(), date: d.date, amount: Math.round(amt * 100) / 100, desc: d.desc.trim(), cat: d.cat || guessCat(d.desc, amt), who: +d.who }); },
-  saveBudgets: d => { const b = {}; for (const [c] of SPEND_CATS) if (+d[c] > 0) b[c] = +d[c]; M().budgets = b; M().saveGoal = +d.__save || 0; mEditBudgets = false; }
+  saveBudgets: d => { const b = {}; for (const [c] of SPEND_CATS) if (+d[c] > 0) b[c] = +d[c]; Object.assign(MB(), { budgets: b, saveGoal: +d.__save || 0 }); mEditBudgets = false; }
 };

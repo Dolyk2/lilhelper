@@ -57,10 +57,10 @@ function home() {
       ${songAdd ? `<form class="row" data-form="addSong" style="margin:.6rem 0 0"><input type="text" name="url" placeholder="Paste a Spotify link" required aria-label="Spotify link"><button class="primary">Add</button></form>${song ? `<button class="ghost" data-act="delSong" data-id="${song.id}">Remove this one</button>` : ''}` : ''}</section>`,
     lists: `<section class="card h-lists">${head('Lists', 'lists')}<div class="lchips">${lst.length ? lst.map(({ l, n }) => `<a class="lchip" href="#lists/${l.id}" data-w="${l.owner ?? 2}"><b>${esc(l.name)}</b><span>${n}</span></a>`).join('') : '<p class="muted">Nothing left on any list.</p>'}</div></section>`
   };
-  /* two columns on a computer (each card only as tall as its content), one column on a phone */
+  /* rows of two equal-height cards on a computer (letters + photo, next days + to-dos, activity + music, lists), one column on a phone */
   return `<div class="homehead"><h2>${hello}, ${esc(S.names[I()])}</h2></div>
   ${heroHtml()}
-  <div class="home3"><div class="hcol">${card.letter}${card.come}${card.todo}</div><div class="hcol">${card.photo}${card.act}${card.music}${card.lists}</div></div>`;
+  <div class="home4">${card.letter}${card.photo}${card.come}${card.todo}${card.act}${card.music}${card.lists}</div>`;
 }
 
 /* ---------- top card: weather for today (where you are, or where your plans are) + countdown ---------- */

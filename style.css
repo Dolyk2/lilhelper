@@ -768,3 +768,14 @@ details.card[open]>summary.chead{margin-bottom:.4rem}
 .h-letter .envelope .envto{bottom:.5rem;right:.9rem;font-size:1.15rem}
 .h-letter .envelope .seal{top:46%;width:2.6rem;height:2.6rem}
 .h-letter .envelope{max-height:150px;width:100%}
+/* home: rows of two cards with the same height, so there are no holes */
+.home4{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--gap);align-items:stretch}
+.home4>.card{margin:0;min-width:0;grid-area:auto}
+.home4 .h-lists{grid-column:1/-1}
+.home4 .h-photo.memo{aspect-ratio:auto;min-height:240px;height:100%}
+.home4 .h-music{display:flex;flex-direction:column}.home4 .h-music .spbig,.home4 .h-music .spot{margin-top:auto}
+.home4 .h-act{display:flex;flex-direction:column;justify-content:center}.home4 .h-act .chead{margin-bottom:auto}
+@media (max-width:900px){.home4{grid-template-columns:1fr}
+  .home4 .h-letter{order:1}.home4 .h-come{order:2}.home4 .h-photo{order:3}.home4 .h-todo{order:4}.home4 .h-act{order:5}.home4 .h-music{order:6}.home4 .h-lists{order:7}
+  .home4 .h-photo.memo{min-height:0;height:auto;aspect-ratio:4/3}}
+.home4 .h-lists{grid-column:1/-1}
