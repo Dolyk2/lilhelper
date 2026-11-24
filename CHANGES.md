@@ -2,6 +2,14 @@
 
 Current version is shown at the bottom of **Settings**.
 
+## 1.12 – 24 Nov 2026
+- **New top of Home:** a weather card for where you are right now (asks for your location once; otherwise Prague) with colours that follow the weather, the next 12 hours with today's plans placed at their hour, a tip (umbrella, cold…), plus a countdown card for special dates and your days together.
+- Home shows the **next 7 days**; cards are only as tall as their content (two columns on a computer, one on a phone); list chips fill each row.
+- Love letters got their own card on Home.
+- **Spotify:** Spotify's own playlists (Blend, Daily Mix) can't play inside other websites, so they show as a big "Open in Spotify" button.
+- **iPhone:** dialogs (photos, cards, letters) fit the screen, with a close button that is always visible; swipe down to close, swipe left/right between photos. Taps react right away (no double-tap delay), the page scrolls normally, and the heavy blurred background and per-card blur are gone, which made everything slow.
+- **Simpler:** Add food is one search box, grams/kcal and Add; the bank import is one line; standing orders, logging a sport and adding a goal are folded away until you need them.
+
 ## 1.11 – 24 Nov 2026
 - **New Home:** the big card has two tabs: *Today* (days together, next special dates, weather) and *💌 Letters*. "Next 3 days" shows only events, special dates and to-dos due in the next 3 days. Memory photo and to-dos swapped; sports and goals became one compact "Today's activity" card; music has an "Open in Spotify" button; lists are small chips.
 - **Love letters:** one letter a day for each other, typed or written by hand with a finger or pen. Your partner's letter arrives as a sealed envelope; they get a notification. Older letters stay under "Earlier".

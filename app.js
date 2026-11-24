@@ -2,7 +2,7 @@
    {id,title,render} and it appears in the menu. All data lives in S and goes
    through store.load/save, so later you can swap localStorage for a server. */
 
-const APP_VERSION = '1.11', APP_DATE = '24 Nov 2026'; // bump this (and ?v= in index.html) with every change
+const APP_VERSION = '1.12', APP_DATE = '24 Nov 2026'; // bump this (and ?v= in index.html) with every change
 const KEY = 'us-helper-v1', BASE_KEY = KEY + '-base', DIRTY_KEY = KEY + '-dirty';
 const DEFAULTS = {
   names: ['Me', 'Her'], events: [], tasks: [], notes: [], photos: [], sports: [], goals: [], songs: [], calToken: '',
@@ -519,29 +519,30 @@ function openViewer(id) {
   const start = S.photos.find(p => p.id === id); if (!start) return;
   const list = S.photos.filter(p => p.date === start.date).sort((a, b) => a.at - b.at);
   let i = list.findIndex(p => p.id === id);
-  const back = document.activeElement;
-  const box = document.createElement('div'); box.className = 'lightbox'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Photo viewer');
-  box.innerHTML = `<img alt="Memory"><div class="lbbar"><button data-x="prev" aria-label="Previous">‹</button><span></span><button data-x="next" aria-label="Next">›</button><button data-x="del">Delete</button><button data-x="close">Close</button></div>`;
-  document.body.append(box);
-  const img = box.querySelector('img'), cap = box.querySelector('span');
-  const show = async () => { const p = list[i]; cap.textContent = `${fmt(p.date)}, ${i + 1} of ${list.length}`; await urls([p.path]); img.src = urlCache[p.path]?.url || ''; };
-  const close = () => { box.remove(); document.removeEventListener('keydown', keys); back?.focus?.(); };
+  const box = modal(`<div class="viewer"><img alt="Memory"><div class="lbbar"><button data-x="prev" aria-label="Previous">‹</button><span></span><button data-x="next" aria-label="Next">›</button><button data-x="del" class="ghost">Delete</button></div></div>`, 'Photo');
+  box.classList.add('dark');
+  const img = box.querySelector('img'), cap = box.querySelector('.lbbar span');
+  const show = async () => { const p = list[i]; cap.textContent = `${fmtShort(p.date)} · ${i + 1}/${list.length}`; img.removeAttribute('src'); await urls([p.path]); img.src = urlCache[p.path]?.url || ''; };
   const step = n => { i = (i + n + list.length) % list.length; show(); };
-  const keys = e => { if (e.key === 'Escape') close(); if (e.key === 'ArrowLeft') step(-1); if (e.key === 'ArrowRight') step(1); };
+  const keys = e => { if (e.key === 'ArrowLeft') step(-1); if (e.key === 'ArrowRight') step(1); };
   document.addEventListener('keydown', keys);
-  box.onclick = async e => {
-    const x = e.target.dataset.x;
-    if (e.target === box || x === 'close') return close();
+  const close0 = box.close; box.close = () => { document.removeEventListener('keydown', keys); close0(); };
+  box.querySelector('.mclose').onclick = box.close;
+  /* swipe left / right for the next photo */
+  let x0 = null; img.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+  img.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 50 && list.length > 1) step(dx < 0 ? 1 : -1); });
+  box.addEventListener('click', async e => {
+    const x = e.target.closest('[data-x]')?.dataset.x; if (!x) return;
     if (x === 'prev') step(-1);
     if (x === 'next') step(1);
     if (x === 'del' && confirm('Delete this photo for both of you?')) {
       const p = list[i];
       const { error } = await sb.storage.from('memories').remove([p.path, p.thumb]);
       if (error) { toast('Could not delete the photo: ' + error.message); return; }
-      S.photos = S.photos.filter(q => q.id !== p.id); save(); close(); render();
+      S.photos = S.photos.filter(q => q.id !== p.id); save(); box.close(); render();
     }
-  };
-  box.querySelector('[data-x=close]').focus();
+  });
+  if (list.length < 2) box.querySelectorAll('[data-x=prev],[data-x=next]').forEach(b => b.hidden = true);
   show();
 }
 
@@ -636,7 +637,6 @@ function notifyCard() {
 /* ---------- weather (Open-Meteo, no key needed) + event places ---------- */
 const HOME_PLACES = [['Prague', 50.0755, 14.4378], ['Hradec Králové', 50.2092, 15.8328]]; // first one is "home"
 const WX = {};
-let lastWx = ''; // last weather HTML, shown straight away on the next render instead of "Loading…"
 const wxText = c => c === 0 ? 'Clear' : c <= 2 ? 'Partly cloudy' : c === 3 ? 'Cloudy' : c <= 48 ? 'Fog' : c <= 57 ? 'Drizzle' : c <= 67 ? 'Rain' : c <= 77 ? 'Snow' : c <= 82 ? 'Showers' : c <= 86 ? 'Snow showers' : 'Thunderstorm';
 const wxIcon = (c, day = 1) => c === 0 ? (day ? '☀️' : '🌙') : c <= 2 ? (day ? '⛅' : '☁️') : c === 3 ? '☁️' : c <= 48 ? '🌫️' : c <= 67 ? '🌧️' : c <= 77 ? '❄️' : c <= 82 ? '🌦️' : c <= 86 ? '🌨️' : '⛈️';
 async function wx(lat, lon) {
@@ -655,40 +655,6 @@ async function eventWx(e) {
   if (h >= 0) return { code: d.hourly.weather_code[h], day: d.hourly.is_day[h], temp: deg(d.hourly.temperature_2m[h]), rain: d.hourly.precipitation_probability[h], min: d.hourly.temperature_2m[h] };
   const i = d.daily.time.indexOf(e.date); if (i < 0) return null;
   return { code: d.daily.weather_code[i], day: 1, temp: `${deg(d.daily.temperature_2m_min[i])}–${deg(d.daily.temperature_2m_max[i])}`, rain: d.daily.precipitation_probability_max[i], min: d.daily.temperature_2m_min[i] };
-}
-async function buildWeather() {
-  const box = view.querySelector('#wxbox'); if (!box) return;
-  const t = iso(new Date()), t0 = today0(), [hName, hLat, hLon] = HOME_PLACES[0];
-  try {
-    const d = await wx(hLat, hLon), c = d.current, di = d.daily.time.indexOf(t);
-    const nowH = d.hourly.time.indexOf(c.time.slice(0, 13) + ':00');
-    const hours = [0, 2, 4, 6, 8, 10].map(o => nowH + o).filter(i => nowH >= 0 && i < d.hourly.time.length);
-    /* today's plans that haven't finished yet: their weather feeds the tips (umbrella, cold) */
-    const nowHM = new Date().getHours() * 60 + new Date().getMinutes();
-    const plans = S.events.filter(e => e.date === t && (!e.time || +e.time.slice(0, 2) * 60 + +e.time.slice(3, 5) >= nowHM - 120))
-      .sort((a, b) => (a.time || '').localeCompare(b.time || '')).slice(0, 4);
-    const pw = await Promise.all(plans.map(e => eventWx(e).catch(() => null)));
-    /* the next trip within the forecast range (an event somewhere else in the next 9 days) */
-    const trip = S.events.filter(e => e.date > t && e.lat != null && Math.round((parse(e.date) - t0) / 864e5) <= 9).sort((a, b) => a.date.localeCompare(b.date))[0];
-    const tw = trip ? await eventWx(trip).catch(() => null) : null;
-    const others = await Promise.all(HOME_PLACES.slice(1).map(async ([n, la, lo]) => { try { const o = await wx(la, lo); return { n, c: o.current }; } catch { return null; } }));
-    /* friendly tips */
-    const rainMax = Math.max(di >= 0 ? d.daily.precipitation_probability_max[di] : 0, ...pw.filter(Boolean).map(w => w.rain || 0));
-    const coldMin = Math.min(di >= 0 ? d.daily.temperature_2m_min[di] : 99, ...pw.filter(Boolean).map(w => w.min));
-    const tips = [rainMax >= 50 && '☂️ Take an umbrella', coldMin <= 0 && '🧣 Freezing, wrap up warm', c.wind_speed_10m >= 35 && '💨 Very windy',
-      di >= 0 && d.daily.temperature_2m_max[di] >= 28 && '🧴 Hot, sunscreen and water', rainMax < 20 && c.weather_code <= 2 && c.is_day && '😎 Nice day to go outside'].filter(Boolean).slice(0, 2);
-    lastWx = `<div class="wxtop"><span class="wxbig">${wxIcon(c.weather_code, c.is_day)}</span>
-      <div><div class="wxtemp">${deg(c.temperature_2m)}</div><div class="wxdesc">${wxText(c.weather_code)} in ${esc(hName)}</div></div>
-      <div class="wxmeta">${di >= 0 ? `<span>↑ ${deg(d.daily.temperature_2m_max[di])} ↓ ${deg(d.daily.temperature_2m_min[di])}</span><span>💧 ${d.daily.precipitation_probability_max[di]}% rain</span>` : ''}<span>feels ${deg(c.apparent_temperature)} · 💨 ${Math.round(c.wind_speed_10m)} km/h</span></div></div>
-      <div class="wxhours">${hours.map((i, k) => `<div><small>${k ? d.hourly.time[i].slice(11, 16) : 'Now'}</small><span>${k ? wxIcon(d.hourly.weather_code[i], d.hourly.is_day[i]) : wxIcon(c.weather_code, c.is_day)}</span><b>${deg(k ? d.hourly.temperature_2m[i] : c.temperature_2m)}</b>${d.hourly.precipitation_probability[i] >= 30 ? `<small class="wxrain">${d.hourly.precipitation_probability[i]}%</small>` : ''}</div>`).join('')}</div>
-      ${tips.length ? `<div class="wxtips">${tips.map(x => `<span>${x}</span>`).join('')}</div>` : ''}
-      <div class="wxfoot">${others.filter(Boolean).map(o => `<span>${esc(o.n)} ${wxIcon(o.c.weather_code, o.c.is_day)} <b>${deg(o.c.temperature_2m)}</b></span>`).join('')}${trip && tw ? `<span>${esc(trip.location)}, ${parse(trip.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })} ${wxIcon(tw.code)} <b>${tw.temp}</b></span>` : ''}</div>`;
-    const cur = view.querySelector('#wxbox'); if (cur) cur.innerHTML = lastWx;
-  } catch {
-    if (lastWx) return;
-    const plans = S.events.filter(e => e.date === t).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-    box.innerHTML = `<h3>Weather</h3><p class="wxnone">Weather is not available right now.</p>${plans.length ? `<div class="wxsub"><h4>Today's plans</h4><div class="wxplans">${plans.map(e => `<div class="wxplan" data-w="${e.who}"><span class="wxpt">${esc(e.time || 'all day')}</span><span class="grow">${esc(e.title)}</span></div>`).join('')}</div></div>` : ''}`;
-  }
 }
 async function geocodeEvent(e) {
   if (!e.location) return;
@@ -773,7 +739,7 @@ function goals() {
   <div class="gsums">${summary}</div>
   <div class="chead" style="margin:1.2rem 0 .6rem;flex-wrap:wrap"><h3>Your goals today</h3><div class="tabs" style="margin:0;align-items:center"><span class="muted">History:</span>${[7, 14, 30].map(n => `<button class="${goalDays === n ? 'on' : ''}" data-act="grange" data-id="${n}">${n} days</button>`).join('')}</div></div>
   <div class="goalgrid">${S.goals.map(card).join('') || '<div class="card"><p class="muted">No goals yet. Add one below.</p></div>'}</div>
-  <form class="card gform" data-form="addGoal"><h3>Add a goal</h3>${goalFields({ icon: '⭐', owner: 2, step: 1 })}<p><button class="primary">Add goal</button></p></form>`;
+  <details class="card addbox"><summary><b>+ Add a goal</b></summary><form class="gform" data-form="addGoal">${goalFields({ icon: '⭐', owner: 2, step: 1 })}<p><button class="primary">Add goal</button></p></form></details>`;
 }
 const GOAL_EMOJIS = ['⭐', '💧', '🧘', '📖', '🚶', '👟', '🏃', '🏋️', '🚴', '🏊', '🧠', '🥗', '🍎', '🥦', '🚭', '🍷', '😴', '🚿', '🧊', '☀️', '🦷', '💊', '📵', '✍️', '🎸', '🎨', '🧹', '💰', '🙏', '❤️'];
 const goalFields = g => `<div class="emopick">${seg('icon', [...new Set([g.icon || '⭐', ...GOAL_EMOJIS])].map(e => [e, e]), g.icon || '⭐', 'Icon')}</div>
@@ -829,7 +795,7 @@ function sports() {
   ${bars.length ? `<div class="card"><h3>Time by activity</h3>${legend()}${bars.map(([t, v]) => { const on = [0, 1, 2].filter(w => v[w]); return `<div class="bgroup"><div class="bhead"><strong>${esc(t)}</strong><span class="muted">${hm(sum3(v))}</span></div>
     <div class="stack" role="img" aria-label="${esc(t)}: ${on.map(w => `${esc(owner(w))} ${hm(v[w])}`).join(', ')}"><div style="width:${Math.max(4, Math.round(sum3(v) / maxB * 100))}%">${on.map(w => `<i data-w="${w}" style="flex:${v[w]}" title="${esc(owner(w))}: ${hm(v[w])}"></i>`).join('')}</div></div>
     <div class="stacklbl">${on.map(w => `<span data-w="${w}"><b></b>${esc(owner(w))} ${hm(v[w])}</span>`).join('')}</div></div>`; }).join('')}</div>` : ''}
-  <form class="card row" data-form="addSport"><h3 style="flex-basis:100%;margin:0">Log an activity</h3>${fields({})}<button class="primary">Add activity</button></form>
+  <details class="card addbox"><summary><b>+ Log an activity</b></summary><form class="row" data-form="addSport">${fields({})}<button class="primary">Add activity</button></form></details>
   <datalist id="sporttypes">${types.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
   <div class="tabs">${tab('swho', 'all', sportWho === 'all', 'Everyone')}${tab('swho', '0', sportWho === '0', esc(S.names[0]))}${tab('swho', '1', sportWho === '1', esc(S.names[1]))}</div>
   <div class="card"><ul class="items">${list.map(row).join('') || '<li class="muted">Nothing logged yet.</li>'}</ul></div>`;
@@ -847,7 +813,7 @@ function focusPrep(page, a, b) {
   if (page === 'notes') noteWho = 'all';
   if (page === 'sports') { sportRange = 'all'; sportWho = 'all'; }
   if (page === 'home' && S.songs.some(x => x.id === a)) songId = a;
-  if (page === 'home' && S.letters.some(x => x.id === a)) heroTab = 'letters';
+  if (page === 'home' && S.letters.some(x => x.id === a)) setTimeout(() => readLetter(a), 300);
   editing = null;
   return a;
 }
@@ -887,23 +853,23 @@ function render() {
     + `<div class="moresheet" ${moreOpen ? '' : 'hidden'}>${items.filter(x => !PHONE_MAIN.includes(x.key)).map(link).join('')}</div>`;
   document.body.classList.toggle('moreopen', moreOpen);
   document.getElementById('brand').textContent = S.names.join(' + ');
-  const y = m.id === lastPage ? view.scrollTop : 0; // keep position on the same page, start at the top on a new one
+  const y = m.id === lastPage ? scrollY : 0; // keep position on the same page, start at the top on a new one
   if (m.id !== lastPage) { editing = null; moreOpen = false; document.body.classList.remove('moreopen'); nav.querySelector('.moresheet')?.setAttribute('hidden', ''); }
   lastPage = m.id;
   let html = m.render();
   if (m.group) html = html.replace(/^\s*<h2>[^<]*<\/h2>/, ''); // the group title and its tabs replace the page title
   view.innerHTML = subTabs(m) + html;
   view.classList.toggle('onehome', m.id === 'home');
-  view.scrollTop = y;
+  if (scrollY !== y) scrollTo(0, y);
   document.title = m.id === 'home' ? 'Us – our little helper' : `${m.group ? GROUPS[m.group].title + ' · ' : ''}${m.title} · Us`;
   if (editing) view.querySelector('.editing input[type=text], .editing textarea')?.focus();
   if (a) { history.replaceState(null, '', '#' + m.id); if (hl) focusShow(hl); } // the link did its job; keep the address tidy
   else reflash();
   view.querySelectorAll('.tabs').forEach(t => { const on = t.querySelector('button.on'); if (on && t.scrollWidth > t.clientWidth) t.scrollLeft = on.offsetLeft - t.offsetLeft - (t.clientWidth - on.offsetWidth) / 2; }); // keep the selected tab visible on phones
-  hydrate(); buildWeather();
+  hydrate(); if (m.id === 'home') fillHero();
   clearInterval(rotTimer); if (m.id === 'home' && sb && S.photos.length > 1) rotTimer = setInterval(rotatePhoto, 9000);
 }
-const UI_ONLY = new Set(['htab', 'album', 'csort', 'pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'twho', 'grange', 'hwho', 'hday', 'hedit', 'mmonth', 'mwho', 'mall', 'mbudgets', 'mrec', 'more', 'authMode', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
+const UI_ONLY = new Set(['album', 'csort', 'pick', 'prev', 'next', 'edit', 'cancel', 'tab', 'srange', 'swho', 'nwho', 'twho', 'grange', 'hwho', 'hday', 'hedit', 'mmonth', 'mwho', 'mall', 'mbudgets', 'mrec', 'more', 'authMode', 'logout', 'export', 'notifyOn', 'notifyOff', 'notifyTest']);
 document.addEventListener('submit', e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
   if (f.dataset.form === 'login') { e.preventDefault(); login(new FormData(f)); return; }

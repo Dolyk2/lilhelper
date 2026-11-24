@@ -118,11 +118,9 @@ function moneyPage() {
   return `<h2>Finances</h2>
   <div class="mtop"><div class="daynav"><button class="ghost" data-act="mmonth" data-id="-1" aria-label="Previous month">‹</button><strong>${monthName(k)}</strong><button class="ghost" data-act="mmonth" data-id="1" aria-label="Next month" ${k >= monthKey() ? 'disabled' : ''}>›</button></div>
     <div class="tabs" style="margin:0">${visTabs(mWho, 'mwho')}</div></div>
-    <div class="card mimport"><h3>📥 Monthly bank statement</h3>
-      <p class="muted">In your bank's internet banking, open the account history, pick the month and export it as <b>CSV</b>. Then choose the file here. Shops are sorted into categories automatically; when you change a category, the app remembers it for that shop.</p>
-      <div class="row"><label class="muted">Whose account? <select id="impWho">${[2, 0, 1].map(i => `<option value="${i}">${esc(owner(i))}</option>`).join('')}</select></label><button class="primary" type="button" onclick="document.getElementById('csvfile').click()">Choose CSV file</button><input type="file" id="csvfile" accept=".csv,text/csv" hidden></div>
-      <p class="muted msmall">Only the date, amount and description are saved. Account numbers are left out. Payments already imported are skipped.</p>
-      <p>${lastImport ? `<button class="ghost" data-act="undoImport" data-id="${lastImport}">Undo last import</button>` : ''}${M().tx.length ? `<button class="ghost" data-act="wipeMoney">Delete all payments</button>` : ''}</p></div>
+    <div class="card mimport"><div class="mimp"><div><h3>📥 Import the bank statement</h3><p class="muted">Export the month as CSV in your internet banking and choose it here.</p></div>
+      <div class="row"><select id="impWho" aria-label="Whose account">${[2, 0, 1].map(i => `<option value="${i}">${i === 2 ? 'Shared account' : esc(S.names[i]) + '’s account'}</option>`).join('')}</select><button class="primary" type="button" onclick="document.getElementById('csvfile').click()">Choose CSV</button><input type="file" id="csvfile" accept=".csv,text/csv,text/plain" hidden></div></div>
+      ${lastImport || M().tx.length ? `<p class="mimpx">${lastImport ? `<button class="ghost" data-act="undoImport" data-id="${lastImport}">Undo last import</button>` : ''}${M().tx.length ? `<button class="ghost" data-act="wipeMoney">Delete all payments</button>` : ''}</p>` : ''}</div>
   <div class="grid mgrid">
     <div class="card"><div class="muted">Income</div><div class="big mpos">${money(T.income)}</div></div>
     <div class="card"><div class="muted">Spent</div><div class="big">${money(T.spent)}</div>${upcoming < 0 ? `<div class="muted msmall">+ ${money(-upcoming)} in standing orders still to go out</div>` : ''}${prev.spent ? `<div class="muted msmall">${T.spent > prev.spent ? '▲' : '▼'} ${money(Math.abs(T.spent - prev.spent))} vs last month</div>` : ''}</div>
@@ -144,10 +142,10 @@ function moneyPage() {
       <input type="date" name="date" value="${k === monthKey() ? iso(new Date()) : k + '-01'}" aria-label="Date">${whoSeg('who', 2, 'Whose')}<button class="primary">Add</button></form></details>
     <ul class="items txlist">${shown.map(t => `<li data-w="${t.who}" data-hl="${t.id}"><div class="grow"><div class="evt">${esc(t.desc)}</div><div class="evm">${fmtShort(t.date)}${t.who == 2 ? ' · shared' : ''}</div></div>${catSel(t)}<b class="${t.amount > 0 ? 'mpos' : ''}">${t.amount > 0 ? '+' : ''}${money(t.amount)}</b><button class="ghost" data-act="delTx" data-id="${t.id}" aria-label="Delete">✕</button></li>`).join('') || '<li class="muted">Nothing yet.</li>'}</ul>
     ${list.length > 25 ? `<button class="ghost" data-act="mall">${mShowAll ? 'Show fewer' : `Show all ${list.length}`}</button>` : ''}</div>
-  <div class="card"><div class="chead"><h3>Standing orders</h3><button class="ghost" data-act="mrec">${mRecForm ? 'Close' : '+ Add'}</button></div>
-    <p class="muted">Payments that repeat, like rent, savings, a weekly allowance or subscriptions. On each payment day they're added to your transactions by themselves${recs.length ? `. Together about <b>${money(-recOut)}</b> a month goes out this way` : ''}.</p>
+  <details class="card" ${mRecForm ? 'open' : ''}><summary class="chead"><h3>Standing orders</h3><span class="muted">${recs.length ? `${recs.length} · ${money(-recOut)} a month` : 'none'}</span></summary>
+    <p class="muted">Rent, savings, subscriptions… added on each payment day. <button class="ghost" data-act="mrec">${mRecForm ? 'Close' : '+ Add'}</button></p>
     ${mRecForm ? `<form class="row" data-form="addRec">${recFields({ freq: 'w', start: tday, who: I() })}<button class="primary">Add</button></form>` : ''}
-    <ul class="items txlist">${recs.map(recRow).join('') || (mRecForm ? '' : '<li class="muted">No standing orders yet.</li>')}</ul></div>
+    <ul class="items txlist">${recs.map(recRow).join('') || (mRecForm ? '' : '<li class="muted">No standing orders yet.</li>')}</ul></details>
   <div class="mcols">
     <div class="card"><div class="chead"><h3>Monthly budgets</h3><button class="ghost" data-act="mbudgets">${mEditBudgets ? 'Close' : 'Edit'}</button></div>
       ${mEditBudgets ? `<form data-form="saveBudgets"><div class="pgrid">${SPEND_CATS.map(([c, n, i]) => `<label>${i} ${n}<input type="number" name="${c}" min="0" step="100" value="${M().budgets[c] || ''}" placeholder="no limit"></label>`).join('')}

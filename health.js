@@ -129,14 +129,14 @@ function health() {
       <p class="muted hhint">${left >= 0 ? `${kc(burn.total - budget)} kcal under what you burned${burn.total - budget > 0 ? ` ≈ ${((burn.total - budget) * 7 / 7700).toFixed(2)} kg a week` : ''}.` : `Over budget ${day === t ? 'today' : 'this day'}. The weekly average is what counts.`}${noMac ? ` ${noMac} food${noMac > 1 ? 's' : ''} without nutrients.` : ''}</p>
     </div>
     ${burnCard(w, day, b, burn)}
-    <div class="card"><h3>Add food</h3>
+    <div class="card addfood"><h3>Add food</h3>
       <form data-form="addFood" class="foodform" autocomplete="off"><input type="hidden" name="date" value="${day}"><input type="hidden" name="k100" id="fk100"><input type="hidden" name="m100" id="fm100">
-        <div class="fsearch"><input type="text" name="name" id="fname" placeholder="Search: guláš, rohlík, Activia…" required aria-label="Food"><div id="fhits" class="fhits"></div></div>
-        <div class="row"><input type="number" name="g" id="fg" placeholder="grams" min="1" step="any" aria-label="Grams"><input type="number" name="kcal" id="fkcal" placeholder="kcal" min="0" step="1" required aria-label="Calories"><button class="primary">Add</button></div>
+        <input type="hidden" name="p" id="fp"><input type="hidden" name="c" id="fc"><input type="hidden" name="f" id="ff">
+        <div class="fsearch"><input type="search" name="name" id="fname" placeholder="🔍 What did you eat?" required aria-label="Food" enterkeyhint="search"><div id="fhits" class="fhits"></div></div>
+        <div class="famt"><label><input type="number" name="g" id="fg" min="1" step="any" inputmode="decimal" aria-label="Grams"><span>g</span></label><label><input type="number" name="kcal" id="fkcal" min="0" step="1" inputmode="numeric" required aria-label="Calories"><span>kcal</span></label><button class="primary">Add</button></div>
         ${seg('meal', MEALS.map(([k, n, ic]) => [k, `${ic} ${n}`]), meal, 'Meal')}
-        <details class="macdet"><summary class="muted">Protein, carbs, fat (fill in by themselves from the list)</summary><div class="row macrow"><input type="number" name="p" id="fp" placeholder="protein g" min="0" step="any" aria-label="Protein in grams"><input type="number" name="c" id="fc" placeholder="carbs g" min="0" step="any" aria-label="Carbs in grams"><input type="number" name="f" id="ff" placeholder="fat g" min="0" step="any" aria-label="Fat in grams"></div></details>
       </form>
-      ${recent.length ? `<h4 class="hsub">Again?</h4><div class="chips">${recent.map(f => `<button class="chip" data-act="foodAgain" data-id="${f.id}">${esc(f.name.split(' · ')[0])} · ${kc(f.kcal)}</button>`).join('')}</div>` : ''}
+      ${recent.length ? `<div class="chips again">${recent.map(f => `<button class="chip" data-act="foodAgain" data-id="${f.id}">+ ${esc(f.name.split(' · ')[0])}</button>`).join('')}</div>` : ''}
     </div>
     <div class="card hmeals"><div class="chead"><h3>${day === t ? "Today's" : fmtShort(day)} food</h3><b>${kc(eaten)} kcal</b></div>${meals || '<p class="muted">Nothing logged yet.</p>'}
       ${food.length ? `<p class="muted fmac mtot">Protein ${mfmt(sum('p'))} g · Carbs ${mfmt(sum('c'))} g · Fat ${mfmt(sum('f'))} g</p>` : ''}</div>
